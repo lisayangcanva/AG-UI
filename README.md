@@ -12,6 +12,117 @@ The app hosts two agents:
 
 Both agents support **voice input** via the browser's Web Speech API.
 
+---
+
+## Why this is an AG-UI project
+
+AG-UI is a wire protocol — it defines a standard set of event types, event shapes, and a transport (SSE over HTTP) that any agent backend can emit and any frontend can consume. This project implements that contract end-to-end.
+
+### What AG-UI specifies
+
+AG-UI defines three things:
+
+1. **Standard event type names** — what events an agent must emit
+2. **Standard event shapes** — what fields each event carries
+3. **Standard transport** — Server-Sent Events (SSE) over HTTP POST, one JSON object per `data:` line
+
+### What SSE is
+
+SSE (Server-Sent Events) is a browser technology that lets the server push data to the client over a single long-lived HTTP connection — without the client polling.
+
+```
+Normal HTTP:   client asks → server replies → connection closes (repeat)
+SSE:           client asks → server streams chunks → connection stays open until done
+```
+
+Each chunk is a line starting with `data:`:
+
+```
+data: {"type":"RUN_STARTED","thread_id":"..."}
+data: {"type":"TEXT_MESSAGE_CONTENT","delta":"I'll"}
+data: {"type":"TEXT_MESSAGE_CONTENT","delta":" create"}
+data: {"type":"RUN_FINISHED"}
+```
+
+SSE is ideal for AI agents because tokens only flow one way — from the model to the browser.
+
+### The full AG-UI event type standard
+
+#### Lifecycle events
+| Event | When | Required fields |
+|---|---|---|
+| `RUN_STARTED` | Agent begins processing | `thread_id`, `run_id` |
+| `RUN_FINISHED` | Agent completed successfully | `thread_id`, `run_id` |
+| `RUN_ERROR` | Agent failed | `message` |
+
+#### Text message events
+Used when the agent streams natural language text. Always appear as a group: `START` → many `CONTENT` → `END`.
+
+| Event | When | Required fields |
+|---|---|---|
+| `TEXT_MESSAGE_START` | New assistant message begins | `message_id`, `role` |
+| `TEXT_MESSAGE_CONTENT` | One token of streamed text | `message_id`, `delta` |
+| `TEXT_MESSAGE_END` | Message complete | `message_id` |
+
+#### Tool call events
+Used when the agent invokes a tool (function calling). Arguments stream in character by character.
+
+| Event | When | Required fields |
+|---|---|---|
+| `TOOL_CALL_START` | Agent starts invoking a tool | `tool_call_id`, `tool_call_name`, `parent_message_id` |
+| `TOOL_CALL_ARGS` | One JSON fragment of tool arguments | `tool_call_id`, `delta` |
+| `TOOL_CALL_END` | Tool arguments complete | `tool_call_id` |
+
+#### State events
+| Event | When | Required fields |
+|---|---|---|
+| `STATE_SNAPSHOT` | Full current state pushed to client | `snapshot` |
+| `STATE_DELTA` | Partial state update (JSON patch) | `delta` |
+| `MESSAGES_SNAPSHOT` | Full message history | `messages` |
+
+#### Step events (standard)
+| Event | When | Required fields |
+|---|---|---|
+| `STEP_STARTED` | A named agent step begins | `step_name` |
+| `STEP_FINISHED` | A named agent step ends | `step_name` |
+
+### What this project implements
+
+| Event | Status | Where |
+|---|---|---|
+| `RUN_STARTED` | ✅ Implemented | Both agents |
+| `RUN_FINISHED` | ✅ Implemented | Both agents |
+| `RUN_ERROR` | ✅ Implemented | Both agents |
+| `TEXT_MESSAGE_START` | ✅ Implemented | Both agents |
+| `TEXT_MESSAGE_CONTENT` | ✅ Implemented | Both agents |
+| `TEXT_MESSAGE_END` | ✅ Implemented | Both agents |
+| `TOOL_CALL_START` | ✅ Implemented | Ticket Agent |
+| `TOOL_CALL_ARGS` | ✅ Implemented | Ticket Agent |
+| `TOOL_CALL_END` | ✅ Implemented | Ticket Agent |
+| `STATE_SNAPSHOT` | ✅ Implemented | Ticket Agent |
+| `STATE_DELTA` | ❌ Not implemented | — |
+| `MESSAGES_SNAPSHOT` | ❌ Not implemented | — |
+| `STEP_STARTED/FINISHED` | ❌ Not implemented | — |
+| `STEP_PROGRESS` | ⚠️ Custom extension | Print Agent only |
+
+> `STEP_PROGRESS` is not in the official AG-UI spec — it was added specifically for the Print Agent to stream diagnostic step updates. The standard equivalent would be `STEP_STARTED` + `STEP_FINISHED`.
+
+### Where the protocol lives in the code
+
+| File | Role |
+|---|---|
+| `frontend/src/types.ts` | TypeScript definitions of every AG-UI event type and shape |
+| `backend/.../TicketAgent.java` | Emits AG-UI events over SSE as the agent runs |
+| `backend/.../PrintAgent.java` | Emits AG-UI events + custom `STEP_PROGRESS` events |
+| `backend/.../AgentController.java` | Exposes the `text/event-stream` HTTP endpoints |
+| `frontend/src/useAgentStream.ts` | Reads the SSE stream and dispatches by `event.type` |
+| `frontend/src/usePrintAgentStream.ts` | Same, for the Print Agent |
+| `frontend/src/App.tsx` | Renders state driven entirely by AG-UI events |
+
+The key point: the backend can use any AI model and the frontend can be any framework — as long as the backend emits the right event types in the right shapes over SSE, they interoperate. That is what AG-UI gives you.
+
+---
+
 ## Architecture
 
 ```
@@ -54,6 +165,8 @@ TEXT_MESSAGE_CONTENT  ← resolution, streamed token by token
 TEXT_MESSAGE_END
 RUN_FINISHED
 ```
+
+---
 
 ## Prerequisites
 
