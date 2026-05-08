@@ -1,6 +1,8 @@
 # AG-UI Agent
 
-**[View interactive demo site →](https://lisayangcanva.github.io/AG-UI/)**
+[![Interactive Demo](https://img.shields.io/badge/🌐%20Interactive%20Demo-View%20Site-6366f1?style=for-the-badge)](https://lisayangcanva.github.io/AG-UI/)
+
+> **[👉 Click here to view the full interactive demo site](https://lisayangcanva.github.io/AG-UI/)**
 
 A spike project demonstrating the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) — a streaming event protocol that connects AI agent backends to a React frontend in real time.
 
