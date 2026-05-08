@@ -58,10 +58,20 @@ public class TicketAgent {
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
+    private static boolean isPrintIssue(RunAgentInput input) {
+        return input.messages().stream()
+                .anyMatch(m -> m.content().toLowerCase().contains("print"));
+    }
+
     private void runAgent(RunAgentInput input, FluxSink<String> sink) throws Exception {
         sink.next(sseEvent("RUN_STARTED", Map.of(
                 "thread_id", input.threadId(),
                 "run_id", input.runId())));
+
+        // Print issues deliberately take >60s so the frontend switches to background mode
+        if (isPrintIssue(input)) {
+            Thread.sleep(62_000);
+        }
 
         // Build message list, prepending the system message
         List<ChatCompletionMessageParam> messages = new ArrayList<>();
