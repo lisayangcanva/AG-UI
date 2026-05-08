@@ -86,6 +86,19 @@ export function useAgentStream() {
       }));
     }
 
+    // Update the last event's detail in place (for rolling counters)
+    function updateLast(detail: string) {
+      setState((s) => {
+        if (s.events.length === 0) return s;
+        const events = [...s.events];
+        events[events.length - 1] = { ...events[events.length - 1], detail };
+        return { ...s, events };
+      });
+    }
+
+    let tokenCount = 0;
+    let argCharCount = 0;
+
     function handleEvent(event: AgUIEvent) {
       switch (event.type) {
         case "RUN_STARTED":
@@ -95,7 +108,8 @@ export function useAgentStream() {
 
         case "TEXT_MESSAGE_START":
           messageCount++;
-          log("TEXT_MESSAGE_START", messageCount === 1 ? "reasoning" : "summary");
+          tokenCount = 0;
+          log("TEXT_MESSAGE_START", messageCount === 1 ? "reasoning · 0 tokens" : "summary · 0 tokens");
           setState((s) => ({
             ...s,
             status: messageCount === 1 ? "Thinking…" : "Writing summary…",
@@ -103,12 +117,15 @@ export function useAgentStream() {
           break;
 
         case "TEXT_MESSAGE_CONTENT":
+          tokenCount++;
+          updateLast(messageCount === 1 ? `reasoning · ${tokenCount} tokens` : `summary · ${tokenCount} tokens`);
           setState((s) => ({ ...s, text: s.text + event.delta }));
           break;
 
         case "TOOL_CALL_START":
           rawArgsRef.current = "";
-          log("TOOL_CALL_START", event.tool_call_name);
+          argCharCount = 0;
+          log("TOOL_CALL_START", `${event.tool_call_name} · 0 chars`);
           setState((s) => ({
             ...s,
             status: "Building ticket…",
@@ -118,6 +135,8 @@ export function useAgentStream() {
 
         case "TOOL_CALL_ARGS":
           rawArgsRef.current += event.delta;
+          argCharCount += event.delta.length;
+          updateLast(`${event.tool_call_name ?? "create_ticket"} · ${argCharCount} chars`);
           const parsed = parsePartialJson(rawArgsRef.current);
           setState((s) => {
             if (!s.toolProgress) return s;

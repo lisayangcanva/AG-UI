@@ -45,6 +45,17 @@ export function usePrintAgentStream() {
       }));
     }
 
+    function updateLast(detail: string) {
+      setState((s) => {
+        if (s.events.length === 0) return s;
+        const events = [...s.events];
+        events[events.length - 1] = { ...events[events.length - 1], detail };
+        return { ...s, events };
+      });
+    }
+
+    let tokenCount = 0;
+
     function handleEvent(event: AgUIEvent) {
       switch (event.type) {
         case "RUN_STARTED":
@@ -54,7 +65,7 @@ export function usePrintAgentStream() {
 
         case "STEP_PROGRESS": {
           const e = event as StepProgressEvent;
-          log("STEP_PROGRESS", `step ${e.step}/${e.total}`);
+          log("STEP_PROGRESS", `step ${e.step}/${e.total} · ${e.message}`);
           setState((s) => {
             const steps = [...s.steps];
             const updated = steps.map((st) =>
@@ -69,7 +80,8 @@ export function usePrintAgentStream() {
         }
 
         case "TEXT_MESSAGE_START":
-          log("TEXT_MESSAGE_START", "resolution");
+          tokenCount = 0;
+          log("TEXT_MESSAGE_START", "resolution · 0 tokens");
           setState((s) => ({
             ...s,
             steps: s.steps.map((st) => ({ ...st, done: true })),
@@ -78,6 +90,8 @@ export function usePrintAgentStream() {
           break;
 
         case "TEXT_MESSAGE_CONTENT":
+          tokenCount++;
+          updateLast(`resolution · ${tokenCount} tokens`);
           setState((s) => ({ ...s, text: s.text + event.delta }));
           break;
 

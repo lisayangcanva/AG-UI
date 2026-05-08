@@ -130,7 +130,11 @@ function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
           const meta = EVENT_META[ev.type] ?? { color: "#94a3b8", label: ev.type };
           const elapsed = ((ev.ts - startTs) / 1000).toFixed(2);
           return (
-            <div key={i} className="timeline-row">
+            <div
+              key={i}
+              className="timeline-row"
+              style={{ animationDelay: `${i * 120}ms` }}
+            >
               <span className="timeline-ts">+{elapsed}s</span>
               <span className="timeline-dot" style={{ background: meta.color }} />
               <span className="timeline-type" style={{ color: meta.color }}>{meta.label}</span>
