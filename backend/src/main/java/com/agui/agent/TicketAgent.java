@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,14 +48,14 @@ public class TicketAgent {
     }
 
     public Flux<String> run(RunAgentInput input) {
-        return Flux.create(sink -> {
+        return Flux.<String>create(sink -> {
             try {
                 runAgent(input, sink);
             } catch (Exception e) {
                 sink.next(sseEvent("RUN_ERROR", Map.of("message", e.getMessage())));
                 sink.complete();
             }
-        });
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private void runAgent(RunAgentInput input, FluxSink<String> sink) throws Exception {
