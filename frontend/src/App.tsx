@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAgentStream } from "./useAgentStream";
-import { TicketType, Ticket } from "./types";
+import type { TicketType, Ticket } from "./types";
 import "./App.css";
 
 const TICKET_TYPES: { value: TicketType; label: string; icon: string }[] = [

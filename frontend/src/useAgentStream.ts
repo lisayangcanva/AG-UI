@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { AgUIEvent, Ticket, TicketType } from "./types";
+import type { AgUIEvent, Ticket, TicketType } from "./types";
 
 interface StreamState {
   running: boolean;
