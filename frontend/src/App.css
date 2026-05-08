@@ -199,6 +199,66 @@ textarea:disabled {
   font-size: 0.9rem;
 }
 
+/* Ticket in progress */
+.ticket-in-progress {
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
+.tip-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--accent-bg);
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.tip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.4rem 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.tip-row--block {
+  align-items: flex-start;
+}
+
+.tip-label {
+  min-width: 80px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.tip-value {
+  color: var(--text-h);
+  line-height: 1.5;
+}
+
+.tip-description {
+  white-space: pre-wrap;
+}
+
+.tip-type {
+  text-transform: capitalize;
+}
+
+.tip-priority {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
 /* Tickets */
 .tickets-list {
   display: flex;

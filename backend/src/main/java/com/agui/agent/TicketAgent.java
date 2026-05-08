@@ -25,11 +25,12 @@ public class TicketAgent {
 
     private static final String SYSTEM_PROMPT = """
             You are a ticket creation agent. When the user describes a problem or request,
-            you will create a well-structured ticket using the create_ticket function.
+            first write 2-3 sentences out loud analysing the issue: what type of ticket it is,
+            what the core problem or goal is, and what priority you will assign and why.
+            Then call create_ticket to create the structured ticket.
             For bugs: focus on what's broken, steps to reproduce, and expected vs actual behavior.
             For features: focus on the user value, acceptance criteria, and scope.
-            For tasks: focus on the work to be done, definition of done, and any dependencies.
-            Always call create_ticket — never just describe the ticket in text.""";
+            For tasks: focus on the work to be done, definition of done, and any dependencies.""";
 
     public final Map<String, Ticket> tickets = new ConcurrentHashMap<>();
 

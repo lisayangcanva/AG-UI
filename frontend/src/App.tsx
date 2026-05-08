@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAgentStream } from "./useAgentStream";
+import type { ToolProgress } from "./useAgentStream";
 import type { TicketType, Ticket } from "./types";
 import "./App.css";
 
@@ -15,6 +16,63 @@ const PRIORITY_COLORS: Record<string, string> = {
   medium: "#eab308",
   low: "#22c55e",
 };
+
+const PRIORITY_LABELS: Record<string, string> = {
+  critical: "Critical",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+function TicketInProgress({ progress }: { progress: ToolProgress }) {
+  return (
+    <div className="ticket-in-progress">
+      <div className="tip-header">
+        <span className="status-spinner" />
+        Writing ticket…
+      </div>
+      {progress.type && (
+        <div className="tip-row">
+          <span className="tip-label">Type</span>
+          <span className="tip-value tip-type">{progress.type}</span>
+        </div>
+      )}
+      {progress.priority && (
+        <div className="tip-row">
+          <span className="tip-label">Priority</span>
+          <span
+            className="tip-value tip-priority"
+            style={{ color: PRIORITY_COLORS[progress.priority] }}
+          >
+            {PRIORITY_LABELS[progress.priority] ?? progress.priority}
+          </span>
+        </div>
+      )}
+      {progress.title && (
+        <div className="tip-row">
+          <span className="tip-label">Title</span>
+          <span className="tip-value">{progress.title}<span className="cursor" /></span>
+        </div>
+      )}
+      {progress.description && (
+        <div className="tip-row tip-row--block">
+          <span className="tip-label">Description</span>
+          <span className="tip-value tip-description">{progress.description}<span className="cursor" /></span>
+        </div>
+      )}
+      {progress.labels.length > 0 && (
+        <div className="tip-row">
+          <span className="tip-label">Labels</span>
+          <span className="tip-value">
+            {progress.labels.map((l) => (
+              <span key={l} className="label">{l}</span>
+            ))}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TicketCard({ ticket }: { ticket: Ticket }) {
   return (
@@ -104,7 +162,7 @@ export default function App() {
           )}
         </section>
 
-        {(state.text || state.activeToolCall || state.error) && (
+        {(state.text || state.toolProgress || state.error) && (
           <section className="stream-section">
             <h2>Agent Stream</h2>
 
@@ -113,17 +171,12 @@ export default function App() {
             {state.text && (
               <div className="agent-text">
                 {state.text}
-                {state.running && <span className="cursor" />}
+                {state.running && !state.toolProgress && <span className="cursor" />}
               </div>
             )}
 
-            {state.activeToolCall && (
-              <div className="tool-call">
-                <div className="tool-call-header">
-                  Calling <strong>{state.activeToolCall.name}</strong>…
-                </div>
-                <pre className="tool-args">{state.activeToolCall.args || "…"}</pre>
-              </div>
+            {state.toolProgress && (
+              <TicketInProgress progress={state.toolProgress} />
             )}
           </section>
         )}
