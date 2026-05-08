@@ -28,6 +28,41 @@ section {
   margin-bottom: 2rem;
 }
 
+/* Mode switcher */
+.mode-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.15s;
+}
+
+.mode-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-h);
+}
+
+.mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
 /* Form */
 .form-section form {
   display: flex;
@@ -260,6 +295,84 @@ textarea:disabled {
   padding: 0.75rem 1rem;
   color: #dc2626;
   font-size: 0.9rem;
+}
+
+/* Print agent panel */
+.print-panel {
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.print-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--accent-bg);
+  padding: 0.65rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.print-progress-bar {
+  height: 4px;
+  background: var(--border);
+}
+
+.print-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.5s ease;
+}
+
+.print-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+.print-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: color 0.2s;
+}
+
+.print-step--done {
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.print-step--active {
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.print-step--waiting {
+  color: var(--text);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.print-step-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.print-step-spinner {
+  width: 12px !important;
+  height: 12px !important;
 }
 
 /* Ticket in progress */

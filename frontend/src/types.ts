@@ -21,7 +21,8 @@ export type EventType =
   | "TOOL_CALL_START"
   | "TOOL_CALL_ARGS"
   | "TOOL_CALL_END"
-  | "STATE_SNAPSHOT";
+  | "STATE_SNAPSHOT"
+  | "STEP_PROGRESS";
 
 export interface BaseEvent {
   type: EventType;
@@ -78,6 +79,13 @@ export interface RunErrorEvent extends BaseEvent {
   message: string;
 }
 
+export interface StepProgressEvent extends BaseEvent {
+  type: "STEP_PROGRESS";
+  step: number;
+  total: number;
+  message: string;
+}
+
 export type AgUIEvent =
   | BaseEvent
   | TextMessageStartEvent
@@ -88,4 +96,5 @@ export type AgUIEvent =
   | ToolCallEndEvent
   | StateSnapshotEvent
   | RunFinishedEvent
-  | RunErrorEvent;
+  | RunErrorEvent
+  | StepProgressEvent;
