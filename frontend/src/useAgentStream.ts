@@ -104,7 +104,7 @@ export function useAgentStream() {
         if (!s.running) return s;
         return { ...s, backgrounded: true, status: "Working in background…" };
       });
-    }, 60_000);
+    }, 30_000);
 
     function log(type: string, detail: string) {
       setState((s) => ({
