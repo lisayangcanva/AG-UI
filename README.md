@@ -6,11 +6,10 @@
 
 A spike project demonstrating the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) — a streaming event protocol that connects AI agent backends to a React frontend in real time.
 
-The app hosts two agents:
+The app hosts one agent:
 - **Ticket Agent** — accepts a natural-language description, calls GPT-4.1 to produce a structured ticket via tool use, and streams every step back to the UI as it happens.
-- **Print Agent** — diagnoses print issues with a live 5-step progress panel, then streams a practical resolution.
 
-Both agents support **voice input** via the browser's Web Speech API.
+The agent supports **voice input** via the browser's Web Speech API, a **cancel button** to abort at any time, and a **background mode** for slow requests (see UX features below).
 
 ---
 
@@ -90,12 +89,12 @@ Used when the agent invokes a tool (function calling). Arguments stream in chara
 
 | Event | Status | Where |
 |---|---|---|
-| `RUN_STARTED` | ✅ Implemented | Both agents |
-| `RUN_FINISHED` | ✅ Implemented | Both agents |
-| `RUN_ERROR` | ✅ Implemented | Both agents |
-| `TEXT_MESSAGE_START` | ✅ Implemented | Both agents |
-| `TEXT_MESSAGE_CONTENT` | ✅ Implemented | Both agents |
-| `TEXT_MESSAGE_END` | ✅ Implemented | Both agents |
+| `RUN_STARTED` | ✅ Implemented | Ticket Agent |
+| `RUN_FINISHED` | ✅ Implemented | Ticket Agent |
+| `RUN_ERROR` | ✅ Implemented | Ticket Agent |
+| `TEXT_MESSAGE_START` | ✅ Implemented | Ticket Agent |
+| `TEXT_MESSAGE_CONTENT` | ✅ Implemented | Ticket Agent |
+| `TEXT_MESSAGE_END` | ✅ Implemented | Ticket Agent |
 | `TOOL_CALL_START` | ✅ Implemented | Ticket Agent |
 | `TOOL_CALL_ARGS` | ✅ Implemented | Ticket Agent |
 | `TOOL_CALL_END` | ✅ Implemented | Ticket Agent |
@@ -103,9 +102,6 @@ Used when the agent invokes a tool (function calling). Arguments stream in chara
 | `STATE_DELTA` | ❌ Not implemented | — |
 | `MESSAGES_SNAPSHOT` | ❌ Not implemented | — |
 | `STEP_STARTED/FINISHED` | ❌ Not implemented | — |
-| `STEP_PROGRESS` | ⚠️ Custom extension | Print Agent only |
-
-> `STEP_PROGRESS` is not in the official AG-UI spec — it was added specifically for the Print Agent to stream diagnostic step updates. The standard equivalent would be `STEP_STARTED` + `STEP_FINISHED`.
 
 ### Where the protocol lives in the code
 
@@ -113,10 +109,8 @@ Used when the agent invokes a tool (function calling). Arguments stream in chara
 |---|---|
 | `frontend/src/types.ts` | TypeScript definitions of every AG-UI event type and shape |
 | `backend/.../TicketAgent.java` | Emits AG-UI events over SSE as the agent runs |
-| `backend/.../PrintAgent.java` | Emits AG-UI events + custom `STEP_PROGRESS` events |
-| `backend/.../AgentController.java` | Exposes the `text/event-stream` HTTP endpoints |
+| `backend/.../AgentController.java` | Exposes the `text/event-stream` HTTP endpoint |
 | `frontend/src/useAgentStream.ts` | Reads the SSE stream and dispatches by `event.type` |
-| `frontend/src/usePrintAgentStream.ts` | Same, for the Print Agent |
 | `frontend/src/App.tsx` | Renders state driven entirely by AG-UI events |
 
 The key point: the backend can use any AI model and the frontend can be any framework — as long as the backend emits the right event types in the right shapes over SSE, they interoperate. That is what AG-UI gives you.
@@ -128,8 +122,7 @@ The key point: the backend can use any AI model and the frontend can be any fram
 ```
 frontend (React + TypeScript + Vite)
     │
-    │  POST /agent          (Ticket Agent — SSE stream)
-    │  POST /print-agent    (Print Agent  — SSE stream)
+    │  POST /agent    (Ticket Agent — SSE stream)
     ▼
 backend (Spring Boot + Java 21)
     │
@@ -151,17 +144,6 @@ TEXT_MESSAGE_END
 STATE_SNAPSHOT        ← full ticket list
 TEXT_MESSAGE_START
 TEXT_MESSAGE_CONTENT  ← summary, streamed
-TEXT_MESSAGE_END
-RUN_FINISHED
-```
-
-### AG-UI event flow — Print Agent
-
-```
-RUN_STARTED
-STEP_PROGRESS × 5     ← one per second, each describing a diagnostic step
-TEXT_MESSAGE_START
-TEXT_MESSAGE_CONTENT  ← resolution, streamed token by token
 TEXT_MESSAGE_END
 RUN_FINISHED
 ```
@@ -226,19 +208,17 @@ AG-UI/
 │   └── src/main/java/com/agui/
 │       ├── Application.java
 │       ├── agent/
-│       │   ├── TicketAgent.java            # ticket creation via tool use
-│       │   └── PrintAgent.java             # print diagnostics with staged progress
+│       │   └── TicketAgent.java            # ticket creation via tool use + slow-request simulation
 │       ├── controller/
-│       │   └── AgentController.java        # POST /agent, POST /print-agent, GET /tickets
+│       │   └── AgentController.java        # POST /agent, GET /tickets
 │       └── model/
 │           ├── Message.java
 │           ├── RunAgentInput.java
 │           └── Ticket.java
 └── frontend/
     └── src/
-        ├── App.tsx                         # mode switcher, forms, stream panels
-        ├── useAgentStream.ts               # ticket agent SSE hook
-        ├── usePrintAgentStream.ts          # print agent SSE hook with step tracking
+        ├── App.tsx                         # form, stream panel, background mode, toast
+        ├── useAgentStream.ts               # SSE hook with background mode + browser notifications
         ├── useSpeechRecognition.ts         # Web Speech API voice input hook
         └── types.ts                        # AG-UI event type union
 ```
@@ -326,9 +306,25 @@ Click the microphone icon in the textarea to speak your issue. The transcript po
 - Requires permission grant: Safari (enable in settings)
 - Not supported: Firefox
 
+## UX features for long-running requests
+
+| Feature | Behaviour |
+|---|---|
+| **Streaming** | Reasoning text, tool args, and summary all stream token by token from the first response |
+| **Elapsed timer** | Live `0s … 1:02` counter in the status bar proves the connection is alive |
+| **Background mode** | If a run is still going at **10 seconds**, the stream panel hides and the status bar reads "Working in background — feel free to step away". The user can navigate away or start a new request |
+| **Toast notification** | When a background run completes, a green toast banner appears: "Ticket ready — scroll down to view it." Dismissible with × |
+| **Browser push notification** | At the 10s mark the browser requests notification permission. When the ticket is ready a system notification fires — visible even if the tab is in the background or the browser is minimised |
+| **Cancel button** | Appears as soon as the agent starts. Aborts the SSE connection immediately and shows a "Request cancelled." notice |
+
+### Slow-request simulation
+
+The backend detects the word **"print"** in the user's message and deliberately sleeps 12 seconds before processing, triggering the full background-mode flow. All other requests complete in normal time.
+
 ## Notes
 
 - The in-memory ticket store (`ConcurrentHashMap` in `TicketAgent`) resets on server restart — intentional for a spike.
-- The Print Agent deliberately sleeps 1 second between each of its 5 diagnostic steps to simulate real processing time.
+- `TicketAgent` runs on `Schedulers.boundedElastic()` so blocking OpenAI calls don't prevent Spring from flushing SSE events immediately.
 - CORS is configured for `http://localhost:5173` only.
 - Frontend type imports use `import type` syntax, required by `verbatimModuleSyntax: true` in `tsconfig.app.json`.
+- Browser push notifications require both browser-level and macOS-level permission to be granted. If notifications don't appear, check **System Settings → Notifications** and ensure your browser is allowed.
