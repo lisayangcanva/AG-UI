@@ -36,9 +36,12 @@ public class TicketAgent {
     private final OpenAIClient client;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public TicketAgent(@Value("${openai.api-key}") String apiKey) {
+    public TicketAgent(
+            @Value("${openai.api-key}") String apiKey,
+            @Value("${openai.org-id}") String orgId) {
         this.client = OpenAIOkHttpClient.builder()
                 .apiKey(apiKey)
+                .organization(orgId)
                 .build();
     }
 
