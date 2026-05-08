@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AG-UI Agent — Interactive Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3248;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --green: #22c55e;
+      --orange: #f97316;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #94a3b8;
+      --text-h: #e2e8f0;
+      --text-bright: #f8fafc;
+      font-size: 16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15,17,23,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      padding: 0 2rem;
+      height: 56px;
+    }
+    nav .logo { font-weight: 700; font-size: 1.1rem; color: var(--text-bright); letter-spacing: -0.02em; }
+    nav .logo span { color: var(--accent); }
+    nav a { color: var(--text); text-decoration: none; font-size: 0.9rem; transition: color .15s; }
+    nav a:hover { color: var(--text-h); }
+    nav .gh-btn {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.4rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-h);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: border-color .15s, color .15s;
+    }
+    nav .gh-btn:hover { border-color: var(--accent); color: var(--text-bright); }
+
+    /* ── Layout ── */
+    .hero {
+      text-align: center;
+      padding: 6rem 1rem 4rem;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,102,241,.18) 0%, transparent 70%);
+    }
+    .badge {
+      display: inline-block;
+      padding: .25rem .75rem;
+      border: 1px solid rgba(99,102,241,.4);
+      border-radius: 99px;
+      font-size: .78rem;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      letter-spacing: .04em;
+    }
+    h1 { font-size: clamp(2rem, 5vw, 3.5rem); color: var(--text-bright); font-weight: 800; letter-spacing: -.03em; line-height: 1.15; }
+    h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { margin-top: 1.25rem; font-size: 1.1rem; color: var(--text); max-width: 560px; margin-inline: auto; }
+    .hero-btns { display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap; }
+    .btn-primary {
+      padding: .7rem 1.75rem; border-radius: 8px;
+      background: var(--accent); color: #fff; font-weight: 600; font-size: .95rem;
+      text-decoration: none; border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .88; }
+    .btn-outline {
+      padding: .7rem 1.75rem; border-radius: 8px;
+      border: 1px solid var(--border); color: var(--text-h); font-size: .95rem;
+      text-decoration: none; background: transparent; cursor: pointer; transition: border-color .15s;
+    }
+    .btn-outline:hover { border-color: var(--accent); }
+
+    section { padding: 5rem 1rem; }
+    .container { max-width: 1080px; margin: 0 auto; }
+    .section-label { font-size: .8rem; font-weight: 600; letter-spacing: .1em; color: var(--accent); text-transform: uppercase; margin-bottom: .75rem; }
+    h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); color: var(--text-bright); font-weight: 700; letter-spacing: -.02em; }
+    .subtitle { color: var(--text); margin-top: .75rem; max-width: 560px; font-size: 1rem; }
+
+    /* ── Architecture ── */
+    #architecture { background: var(--surface); }
+    .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 3rem; }
+    @media (max-width: 700px) { .arch-grid { grid-template-columns: 1fr; } }
+    .arch-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .arch-box h3 { font-size: 1rem; font-weight: 600; color: var(--text-bright); margin-bottom: .5rem; display: flex; align-items: center; gap: .5rem; }
+    .arch-box p { font-size: .9rem; color: var(--text); }
+    .arch-diagram {
+      margin-top: 3rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .arch-node {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .75rem 1.25rem;
+      text-align: center;
+      min-width: 140px;
+    }
+    .arch-node .node-title { font-size: .85rem; font-weight: 600; color: var(--text-bright); }
+    .arch-node .node-sub { font-size: .75rem; color: var(--text); margin-top: .2rem; }
+    .arch-arrow {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 .75rem; color: var(--text); font-size: .75rem; gap: .2rem;
+    }
+    .arch-arrow .arrow-line { width: 40px; height: 2px; background: var(--border); position: relative; }
+    .arch-arrow .arrow-line::after { content: ''; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--border); }
+    .arch-arrow .arrow-label { font-size: .7rem; color: var(--accent); white-space: nowrap; }
+
+    /* ── Agents demo ── */
+    .agents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 3rem; }
+    @media (max-width: 700px) { .agents-grid { grid-template-columns: 1fr; } }
+
+    .demo-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .demo-card-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .demo-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .demo-icon.ticket { background: rgba(99,102,241,.15); }
+    .demo-icon.print  { background: rgba(139,92,246,.15); }
+    .demo-card-header h3 { font-size: 1rem; font-weight: 600; color: var(--text-bright); }
+    .demo-card-header p { font-size: .82rem; color: var(--text); margin-top: .1rem; }
+    .demo-body { padding: 1.5rem; }
+
+    /* Fake terminal / stream */
+    .stream-sim {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: ui-monospace, monospace;
+      font-size: .78rem;
+      min-height: 160px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stream-line { margin-bottom: .3rem; display: flex; gap: .5rem; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s; }
+    .stream-line.visible { opacity: 1; transform: none; }
+    .stream-tag { flex-shrink: 0; }
+    .tag-run    { color: #6366f1; }
+    .tag-text   { color: #22c55e; }
+    .tag-tool   { color: #f97316; }
+    .tag-snap   { color: #8b5cf6; }
+    .tag-step   { color: #06b6d4; }
+    .stream-content { color: var(--text); }
+    .stream-content em { color: var(--text-h); font-style: normal; }
+
+    /* Progress steps */
+    .steps-sim { margin-top: 1rem; }
+    .step-row {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .4rem .5rem; border-radius: 6px; font-size: .88rem;
+      opacity: 0; transform: translateX(-6px); transition: opacity .3s, transform .3s;
+    }
+    .step-row.visible { opacity: 1; transform: none; }
+    .step-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .step-done .step-icon { color: var(--green); font-size: .85rem; }
+    .step-active .step-icon { }
+    .step-done  { color: var(--text); }
+    .step-active { color: var(--text-h); font-weight: 500; }
+    .mini-spinner {
+      width: 14px; height: 14px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-bar-wrap { background: var(--border); border-radius: 4px; height: 4px; margin: .75rem 0; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .5s ease; }
+
+    .play-btn {
+      margin-top: 1rem; width: 100%;
+      padding: .55rem; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--text-h); font-size: .875rem; cursor: pointer; transition: all .15s;
+      display: flex; align-items: center; justify-content: center; gap: .4rem;
+    }
+    .play-btn:hover { border-color: var(--accent); color: var(--text-bright); }
+
+    /* ── Events table ── */
+    #events { background: var(--surface); }
+    .events-tabs { display: flex; gap: .5rem; margin-top: 2rem; flex-wrap: wrap; }
+    .etab {
+      padding: .45rem 1rem; border-radius: 6px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text); font-size: .85rem; cursor: pointer; transition: all .15s;
+    }
+    .etab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+    .events-content { margin-top: 1.5rem; display: none; }
+    .events-content.active { display: block; }
+    .event-row {
+      display: grid; grid-template-columns: 180px 1fr;
+      gap: 1rem; padding: .9rem 0; border-bottom: 1px solid var(--border); align-items: start;
+    }
+    .event-row:last-child { border-bottom: none; }
+    .event-name { font-family: ui-monospace, monospace; font-size: .82rem; font-weight: 600; }
+    .event-desc { font-size: .88rem; color: var(--text); }
+    .tag-run-c    { color: #6366f1; }
+    .tag-text-c   { color: #22c55e; }
+    .tag-tool-c   { color: #f97316; }
+    .tag-snap-c   { color: #8b5cf6; }
+    .tag-step-c   { color: #06b6d4; }
+
+    /* ── Quick start ── */
+    .steps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2.5rem; }
+    @media (max-width: 700px) { .steps-grid { grid-template-columns: 1fr; } }
+    .qs-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    .qs-num { font-size: .8rem; font-weight: 700; color: var(--accent); letter-spacing: .06em; margin-bottom: .5rem; }
+    .qs-card h3 { font-size: 1rem; font-weight: 600; color: var(--text-bright); margin-bottom: .75rem; }
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .85rem 1rem;
+      font-size: .8rem;
+      font-family: ui-monospace, monospace;
+      color: #a5f3fc;
+      overflow-x: auto;
+      margin-top: .75rem;
+    }
+    .code-comment { color: #4b5563; }
+
+    /* ── Features ── */
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 2.5rem; }
+    @media (max-width: 800px) { .features-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 500px) { .features-grid { grid-template-columns: 1fr; } }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem;
+    }
+    .feature-icon { font-size: 1.6rem; margin-bottom: .75rem; }
+    .feature-card h3 { font-size: .95rem; font-weight: 600; color: var(--text-bright); margin-bottom: .4rem; }
+    .feature-card p { font-size: .85rem; color: var(--text); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 1rem;
+      text-align: center;
+      font-size: .85rem;
+      color: var(--text);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <span class="logo">AG-<span>UI</span></span>
+  <a href="#agents">Agents</a>
+  <a href="#events">Events</a>
+  <a href="#quickstart">Quick Start</a>
+  <a href="https://github.com/lisayangcanva/AG-UI" class="gh-btn" target="_blank">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.741 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+    GitHub
+  </a>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="badge">AG-UI Protocol · Spring Boot · React · GPT-4.1</div>
+  <h1>Two AI Agents.<br><span>One Streaming Interface.</span></h1>
+  <p>A full-stack demo showing how the AG-UI protocol connects a Java backend to a React frontend — streaming every token, tool call, and progress step in real time.</p>
+  <div class="hero-btns">
+    <a href="#quickstart" class="btn-primary">Get Started</a>
+    <a href="https://github.com/lisayangcanva/AG-UI" class="btn-outline" target="_blank">View Source</a>
+  </div>
+</div>
+
+<!-- Architecture -->
+<section id="architecture">
+  <div class="container">
+    <div class="section-label">How it works</div>
+    <h2>Architecture</h2>
+    <p class="subtitle">A React frontend posts to a Spring Boot backend which streams AG-UI events back via Server-Sent Events.</p>
+
+    <div class="arch-diagram">
+      <div class="arch-node">
+        <div class="node-title">React + Vite</div>
+        <div class="node-sub">localhost:5173</div>
+      </div>
+      <div class="arch-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-label">POST /agent<br>SSE stream</div>
+      </div>
+      <div class="arch-node">
+        <div class="node-title">Spring Boot</div>
+        <div class="node-sub">localhost:8000</div>
+      </div>
+      <div class="arch-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-label">OpenAI SDK<br>streaming</div>
+      </div>
+      <div class="arch-node">
+        <div class="node-title">GPT-4.1</div>
+        <div class="node-sub">OpenAI API</div>
+      </div>
+    </div>
+
+    <div class="arch-grid">
+      <div class="arch-box">
+        <h3>🎨 Frontend</h3>
+        <p>React + TypeScript + Vite. A custom <code>useAgentStream</code> hook reads the SSE response body and dispatches AG-UI events to update state token-by-token. Voice input via the Web Speech API.</p>
+      </div>
+      <div class="arch-box">
+        <h3>⚙️ Backend</h3>
+        <p>Spring Boot + Java 21 with Project Reactor. Each agent runs in a <code>Flux.create()</code> and emits AG-UI events as JSON strings over a <code>text/event-stream</code> response.</p>
+      </div>
+      <div class="arch-box">
+        <h3>🎫 Ticket Agent</h3>
+        <p>Makes two GPT-4.1 calls. The first streams reasoning + tool args for <code>create_ticket</code>. The second streams a summary. Ticket fields appear live as the model writes them.</p>
+      </div>
+      <div class="arch-box">
+        <h3>🖨️ Print Agent</h3>
+        <p>Emits 5 <code>STEP_PROGRESS</code> events (1 per second) to simulate print diagnostics, then streams a GPT-4.1 resolution. A progress bar and step checklist update live.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Agents demo -->
+<section id="agents">
+  <div class="container">
+    <div class="section-label">Interactive preview</div>
+    <h2>See the agents in action</h2>
+    <p class="subtitle">Press Play to simulate the live event stream for each agent.</p>
+
+    <div class="agents-grid">
+
+      <!-- Ticket Agent -->
+      <div class="demo-card">
+        <div class="demo-card-header">
+          <div class="demo-icon ticket">🎫</div>
+          <div>
+            <h3>Ticket Agent</h3>
+            <p>Turns natural language into a structured ticket</p>
+          </div>
+        </div>
+        <div class="demo-body">
+          <div class="stream-sim" id="ticket-stream">
+            <div class="stream-line" id="ts0"><span class="stream-tag tag-run">RUN_STARTED</span></div>
+            <div class="stream-line" id="ts1"><span class="stream-tag tag-text">TEXT_MESSAGE_CONTENT</span><span class="stream-content"> &nbsp;<em>"This is a high-priority bug — the login button fails on Safari…"</em></span></div>
+            <div class="stream-line" id="ts2"><span class="stream-tag tag-tool">TOOL_CALL_START</span><span class="stream-content"> &nbsp;create_ticket</span></div>
+            <div class="stream-line" id="ts3"><span class="stream-tag tag-tool">TOOL_CALL_ARGS</span><span class="stream-content"> &nbsp;{&nbsp;"type":&nbsp;"bug",&nbsp;"priority":&nbsp;"high"…</span></div>
+            <div class="stream-line" id="ts4"><span class="stream-tag tag-tool">TOOL_CALL_ARGS</span><span class="stream-content"> &nbsp;"title":&nbsp;"Login button unresponsive on Safari…"</span></div>
+            <div class="stream-line" id="ts5"><span class="stream-tag tag-snap">STATE_SNAPSHOT</span><span class="stream-content"> &nbsp;tickets: [TKT-3F2A1B4C]</span></div>
+            <div class="stream-line" id="ts6"><span class="stream-tag tag-text">TEXT_MESSAGE_CONTENT</span><span class="stream-content"> &nbsp;<em>"Ticket TKT-3F2A1B4C created successfully."</em></span></div>
+            <div class="stream-line" id="ts7"><span class="stream-tag tag-run">RUN_FINISHED</span></div>
+          </div>
+          <button class="play-btn" onclick="playTicket()">▶ Play stream</button>
+        </div>
+      </div>
+
+      <!-- Print Agent -->
+      <div class="demo-card">
+        <div class="demo-card-header">
+          <div class="demo-icon print">🖨️</div>
+          <div>
+            <h3>Print Agent</h3>
+            <p>Diagnoses print issues with live progress steps</p>
+          </div>
+        </div>
+        <div class="demo-body">
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" id="print-bar" style="width:0%"></div></div>
+          <div class="steps-sim" id="print-steps">
+            <div class="step-row" id="ps0"><span class="step-icon">·</span>Connecting to print spooler…</div>
+            <div class="step-row" id="ps1"><span class="step-icon">·</span>Checking printer status and drivers…</div>
+            <div class="step-row" id="ps2"><span class="step-icon">·</span>Scanning print queue for stuck jobs…</div>
+            <div class="step-row" id="ps3"><span class="step-icon">·</span>Analysing paper tray and ink levels…</div>
+            <div class="step-row" id="ps4"><span class="step-icon">·</span>Diagnosing root cause…</div>
+          </div>
+          <div class="stream-sim" id="print-resolution" style="display:none; margin-top:.75rem; min-height: 60px;"></div>
+          <button class="play-btn" onclick="playPrint()">▶ Play diagnostics</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Events reference -->
+<section id="events">
+  <div class="container">
+    <div class="section-label">Protocol reference</div>
+    <h2>AG-UI Event Types</h2>
+    <p class="subtitle">Every event is a JSON object streamed over Server-Sent Events.</p>
+
+    <div class="events-tabs">
+      <button class="etab active" onclick="showTab('ticket-events', this)">Ticket Agent</button>
+      <button class="etab" onclick="showTab('print-events', this)">Print Agent</button>
+    </div>
+
+    <div class="events-content active" id="ticket-events">
+      <div class="event-row"><span class="event-name tag-run-c">RUN_STARTED</span><span class="event-desc">Emitted once at the start. Carries <code>thread_id</code> and <code>run_id</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-text-c">TEXT_MESSAGE_START</span><span class="event-desc">Marks the beginning of a new assistant message. Carries a unique <code>message_id</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-text-c">TEXT_MESSAGE_CONTENT</span><span class="event-desc">One token of streamed assistant text. Carries <code>message_id</code> and <code>delta</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-text-c">TEXT_MESSAGE_END</span><span class="event-desc">Closes the current assistant message.</span></div>
+      <div class="event-row"><span class="event-name tag-tool-c">TOOL_CALL_START</span><span class="event-desc">The model has decided to call a tool. Carries <code>tool_call_id</code> and <code>tool_call_name</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-tool-c">TOOL_CALL_ARGS</span><span class="event-desc">A fragment of the tool's JSON arguments, streamed character by character. Carries <code>delta</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-tool-c">TOOL_CALL_END</span><span class="event-desc">The tool call arguments are complete.</span></div>
+      <div class="event-row"><span class="event-name tag-snap-c">STATE_SNAPSHOT</span><span class="event-desc">Full current state pushed to the client. Contains the complete <code>tickets</code> array.</span></div>
+      <div class="event-row"><span class="event-name tag-run-c">RUN_FINISHED</span><span class="event-desc">Stream is complete. UI can unlock the form.</span></div>
+      <div class="event-row"><span class="event-name" style="color:var(--red)">RUN_ERROR</span><span class="event-desc">Something went wrong. Carries a <code>message</code> field.</span></div>
+    </div>
+
+    <div class="events-content" id="print-events">
+      <div class="event-row"><span class="event-name tag-run-c">RUN_STARTED</span><span class="event-desc">Emitted once at the start. Carries <code>thread_id</code> and <code>run_id</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-step-c">STEP_PROGRESS</span><span class="event-desc">One diagnostic step completed. Carries <code>step</code> (1-5), <code>total</code>, and <code>message</code> describing what was checked.</span></div>
+      <div class="event-row"><span class="event-name tag-text-c">TEXT_MESSAGE_START</span><span class="event-desc">All diagnostic steps done. Resolution text is about to stream.</span></div>
+      <div class="event-row"><span class="event-name tag-text-c">TEXT_MESSAGE_CONTENT</span><span class="event-desc">One token of the GPT-4.1 resolution. Carries <code>delta</code>.</span></div>
+      <div class="event-row"><span class="event-name tag-text-c">TEXT_MESSAGE_END</span><span class="event-desc">Resolution text complete.</span></div>
+      <div class="event-row"><span class="event-name tag-run-c">RUN_FINISHED</span><span class="event-desc">Stream is complete.</span></div>
+      <div class="event-row"><span class="event-name" style="color:var(--red)">RUN_ERROR</span><span class="event-desc">Something went wrong. Carries a <code>message</code> field.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section>
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2>What's included</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🎙️</div>
+        <h3>Voice Input</h3>
+        <p>Speak your issue into the mic button. The Web Speech API transcribes it live into the textarea.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Token Streaming</h3>
+        <p>Every token from GPT-4.1 is pushed immediately — reasoning text, tool args, and summaries all appear character by character.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔧</div>
+        <h3>Live Tool Calls</h3>
+        <p>Watch the ticket fields (title, description, priority, labels) build up in real time as the model writes the JSON arguments.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Step Progress</h3>
+        <p>The Print Agent streams 5 diagnostic steps with a live progress bar and checkmarks, keeping users informed during processing.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🖨️</div>
+        <h3>Print Diagnostics</h3>
+        <p>Dedicated agent for print issues: diagnoses the problem through staged steps then streams a practical resolution.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔌</div>
+        <h3>AG-UI Protocol</h3>
+        <p>All events follow the open AG-UI spec — a standard for connecting any AI agent backend to any frontend via SSE.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Quick Start -->
+<section id="quickstart" style="background: var(--surface);">
+  <div class="container">
+    <div class="section-label">Setup</div>
+    <h2>Quick Start</h2>
+    <p class="subtitle">Both servers run locally. You need Java 21+, Maven 3.9+, Node 18+, and an OpenAI API key.</p>
+
+    <div class="steps-grid">
+      <div class="qs-card">
+        <div class="qs-num">STEP 1 — CREDENTIALS</div>
+        <h3>Add your OpenAI key</h3>
+        <pre><span class="code-comment"># copy the template</span>
+cp backend/.env.example \
+   backend/.dev.properties
+
+<span class="code-comment"># then edit the file:</span>
+OPENAI_API_KEY=sk-...
+OPENAI_ORG_ID=org-...</pre>
+      </div>
+      <div class="qs-card">
+        <div class="qs-num">STEP 2 — BACKEND</div>
+        <h3>Start the Spring Boot server</h3>
+        <pre>cd backend
+mvn spring-boot:run
+
+<span class="code-comment"># Starts on http://localhost:8000</span></pre>
+      </div>
+      <div class="qs-card">
+        <div class="qs-num">STEP 3 — FRONTEND</div>
+        <h3>Start the Vite dev server</h3>
+        <pre>cd frontend
+npm install
+npm run dev
+
+<span class="code-comment"># Opens http://localhost:5173</span></pre>
+      </div>
+      <div class="qs-card">
+        <div class="qs-num">STEP 4 — USE IT</div>
+        <h3>Try both agents</h3>
+        <p style="font-size:.9rem; color: var(--text); margin-top:.5rem;">Open <strong style="color:var(--text-h)">http://localhost:5173</strong> in Chrome or Edge. Switch between <strong style="color:var(--text-h)">Ticket Agent</strong> and <strong style="color:var(--text-h)">Print Agent</strong> using the mode selector. Use the 🎙️ mic button to speak your issue.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>Built with the <a href="https://github.com/ag-ui-protocol/ag-ui" target="_blank">AG-UI protocol</a> · <a href="https://github.com/lisayangcanva/AG-UI" target="_blank">View on GitHub</a></p>
+</footer>
+
+<script>
+  // ── Tab switcher ──
+  function showTab(id, btn) {
+    document.querySelectorAll('.events-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.etab').forEach(el => el.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  // ── Ticket stream simulation ──
+  let ticketPlaying = false;
+  function playTicket() {
+    if (ticketPlaying) return;
+    ticketPlaying = true;
+    const lines = document.querySelectorAll('#ticket-stream .stream-line');
+    lines.forEach(l => l.classList.remove('visible'));
+    let i = 0;
+    function next() {
+      if (i >= lines.length) { ticketPlaying = false; return; }
+      lines[i].classList.add('visible');
+      i++;
+      setTimeout(next, i === 1 ? 200 : i <= 3 ? 600 : 400);
+    }
+    next();
+  }
+
+  // ── Print diagnostics simulation ──
+  let printPlaying = false;
+  const PRINT_STEPS = [
+    "Connecting to print spooler…",
+    "Checking printer status and drivers…",
+    "Scanning print queue for stuck jobs…",
+    "Analysing paper tray and ink levels…",
+    "Diagnosing root cause…",
+  ];
+  const RESOLUTION = "The most likely cause is a stalled print job in the queue. Open Services (services.msc), restart the Print Spooler, then delete all files in C:\\Windows\\System32\\spool\\PRINTERS. Restart your printer and try again. To prevent recurrence, keep your printer driver up to date.";
+
+  function playPrint() {
+    if (printPlaying) return;
+    printPlaying = true;
+
+    // reset
+    document.querySelectorAll('#print-steps .step-row').forEach((r, i) => {
+      r.classList.remove('visible', 'step-done', 'step-active');
+      r.querySelector('.step-icon').innerHTML = '·';
+    });
+    document.getElementById('print-bar').style.width = '0%';
+    const res = document.getElementById('print-resolution');
+    res.style.display = 'none';
+    res.textContent = '';
+
+    let step = 0;
+    function activateStep() {
+      if (step >= PRINT_STEPS.length) {
+        // stream resolution
+        res.style.display = 'block';
+        let ci = 0;
+        function typeChar() {
+          if (ci >= RESOLUTION.length) { printPlaying = false; return; }
+          res.textContent += RESOLUTION[ci++];
+          setTimeout(typeChar, 18);
+        }
+        typeChar();
+        return;
+      }
+      const row = document.getElementById('ps' + step);
+      row.classList.add('visible', 'step-active');
+      row.querySelector('.step-icon').innerHTML = '<span class="mini-spinner"></span>';
+      document.getElementById('print-bar').style.width = ((step / PRINT_STEPS.length) * 100) + '%';
+
+      setTimeout(() => {
+        row.classList.remove('step-active');
+        row.classList.add('step-done');
+        row.querySelector('.step-icon').textContent = '✓';
+        step++;
+        document.getElementById('print-bar').style.width = ((step / PRINT_STEPS.length) * 100) + '%';
+        setTimeout(activateStep, 300);
+      }, 1000);
+    }
+    activateStep();
+  }
+</script>
+</body>
+</html>
