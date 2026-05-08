@@ -102,6 +102,34 @@ textarea:disabled {
   cursor: not-allowed;
 }
 
+/* Agent status */
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-h);
+}
+
+.status-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--accent-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Stream */
 .stream-section h2,
 .tickets-section h2 {

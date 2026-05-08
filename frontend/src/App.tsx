@@ -95,6 +95,13 @@ export default function App() {
               {state.running ? "Agent running…" : "Create Ticket"}
             </button>
           </form>
+
+          {state.status && (
+            <div className="agent-status">
+              <span className="status-spinner" />
+              {state.status}
+            </div>
+          )}
         </section>
 
         {(state.text || state.activeToolCall || state.error) && (
