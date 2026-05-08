@@ -2,7 +2,7 @@
 
 A spike project demonstrating the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) — a streaming event protocol that connects an AI agent backend to a React frontend in real time.
 
-The agent accepts a natural-language description, calls Claude to produce a structured ticket via tool use, and streams every step of that process back to the UI as it happens.
+The agent accepts a natural-language description, calls GPT-4.1 to produce a structured ticket via tool use, and streams every step of that process back to the UI as it happens.
 
 ## Architecture
 
@@ -13,9 +13,9 @@ frontend (React + TypeScript + Vite)
     ▼
 backend (Spring Boot + Java 21)
     │
-    │  Anthropic SDK (streaming)
+    │  OpenAI Java SDK (streaming)
     ▼
-Claude claude-sonnet-4-6
+GPT-4.1
 ```
 
 ### AG-UI event flow
@@ -42,19 +42,35 @@ RUN_FINISHED
 | Java | 21+ |
 | Maven | 3.9+ |
 | Node.js | 18+ |
-| Anthropic API key | — |
+| OpenAI API key | — |
 
 ## Quick start
 
 ### 1. Backend
 
+Copy `.env.example` to `.dev.properties` and fill in your credentials:
+
+```bash
+cp backend/.env.example backend/.dev.properties
+```
+
+Edit `backend/.dev.properties`:
+
+```properties
+OPENAI_API_KEY=your_key_here
+OPENAI_ORG_ID=your_org_id_here
+```
+
+Then start the server:
+
 ```bash
 cd backend
-export ANTHROPIC_API_KEY=your_key_here
 mvn spring-boot:run
 ```
 
 Starts on **http://localhost:8000**.
+
+> `.dev.properties` is gitignored and will never be committed.
 
 ### 2. Frontend
 
@@ -71,22 +87,24 @@ Opens on **http://localhost:5173**.
 ```
 AG-UI/
 ├── backend/
+│   ├── .env.example                        # template for .dev.properties
+│   ├── .dev.properties                     # local credentials (gitignored)
 │   ├── pom.xml
 │   └── src/main/java/com/agui/
 │       ├── Application.java
 │       ├── agent/
-│       │   └── TicketAgent.java        # streaming agent + tool execution
+│       │   └── TicketAgent.java            # streaming agent + tool execution
 │       ├── controller/
-│       │   └── AgentController.java    # POST /agent, GET /tickets
+│       │   └── AgentController.java        # POST /agent, GET /tickets
 │       └── model/
 │           ├── Message.java
 │           ├── RunAgentInput.java
 │           └── Ticket.java
 └── frontend/
     └── src/
-        ├── App.tsx                     # ticket type selector, stream panel, ticket cards
-        ├── useAgentStream.ts           # SSE reader, AG-UI event dispatcher
-        └── types.ts                    # AG-UI event type union
+        ├── App.tsx                         # ticket type selector, stream panel, ticket cards
+        ├── useAgentStream.ts               # SSE reader, AG-UI event dispatcher
+        └── types.ts                        # AG-UI event type union
 ```
 
 ## API
@@ -149,5 +167,6 @@ Returns all tickets created in the current server session.
 ## Notes
 
 - The in-memory ticket store (`ConcurrentHashMap` in `TicketAgent`) resets on server restart — intentional for a spike.
-- The backend makes two Claude calls per request: one streaming call to generate text and invoke the tool, then a second non-streaming call to obtain a structured `Message` object for the follow-up turn.
+- The backend makes two GPT-4.1 calls per request: one streaming call to generate text and invoke the tool, then a second streaming call to summarise the result.
 - CORS is configured for `http://localhost:5173` only.
+- Frontend type imports use `import type` syntax, required by `verbatimModuleSyntax: true` in `tsconfig.app.json`.
