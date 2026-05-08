@@ -477,13 +477,19 @@ textarea:disabled {
   align-items: center;
   gap: 0.6rem;
   padding: 0.25rem 0.85rem;
-  opacity: 0;
-  animation: fadeSlideIn 0.25s ease forwards;
+  animation: fadeSlideIn 0.15s ease forwards;
 }
 
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateX(-6px); }
   to   { opacity: 1; transform: none; }
+}
+
+.timeline-cursor {
+  padding: 0.1rem 0.85rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+  animation: blink 0.8s step-end infinite;
 }
 
 .timeline-ts {

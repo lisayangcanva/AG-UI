@@ -110,31 +110,56 @@ const EVENT_META: Record<string, { color: string; label: string }> = {
 
 function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState<AgentEvent[]>([]);
+  const queueRef = useRef<AgentEvent[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // When events array grows, push new ones into the drip queue
+  useEffect(() => {
+    const newEvents = events.slice(visible.length + queueRef.current.length);
+    if (newEvents.length === 0) return;
+    queueRef.current = [...queueRef.current, ...newEvents];
+    if (!timerRef.current) drip();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
+
+  // Reset when events is cleared (new run)
+  useEffect(() => {
+    if (events.length === 0) {
+      setVisible([]);
+      queueRef.current = [];
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    }
+  }, [events]);
+
+  function drip() {
+    if (queueRef.current.length === 0) { timerRef.current = null; return; }
+    const next = queueRef.current.shift()!;
+    setVisible((v) => [...v, next]);
+    timerRef.current = setTimeout(drip, 180);
+  }
 
   useEffect(() => {
     if (bodyRef.current) {
       bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
     }
-  }, [events]);
+  }, [visible]);
 
-  if (events.length === 0) return null;
-  const startTs = events[0].ts;
+  if (visible.length === 0 && events.length === 0) return null;
+  const startTs = events[0]?.ts ?? Date.now();
+
   return (
     <div className="state-timeline">
       <div className="timeline-header">
         <span>AG-UI Event Stream</span>
-        <span className="timeline-count">{events.length} events</span>
+        <span className="timeline-count">{visible.length} / {events.length}</span>
       </div>
       <div className="timeline-body" ref={bodyRef}>
-        {events.map((ev, i) => {
+        {visible.map((ev, i) => {
           const meta = EVENT_META[ev.type] ?? { color: "#94a3b8", label: ev.type };
           const elapsed = ((ev.ts - startTs) / 1000).toFixed(2);
           return (
-            <div
-              key={i}
-              className="timeline-row"
-              style={{ animationDelay: `${i * 120}ms` }}
-            >
+            <div key={i} className="timeline-row">
               <span className="timeline-ts">+{elapsed}s</span>
               <span className="timeline-dot" style={{ background: meta.color }} />
               <span className="timeline-type" style={{ color: meta.color }}>{meta.label}</span>
@@ -142,6 +167,9 @@ function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
             </div>
           );
         })}
+        {queueRef.current.length > 0 && (
+          <div className="timeline-cursor">▋</div>
+        )}
       </div>
     </div>
   );
