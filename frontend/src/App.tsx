@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAgentStream } from "./useAgentStream";
-import { usePrintAgentStream } from "./usePrintAgentStream";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import type { ToolProgress, AgentEvent } from "./useAgentStream";
 import type { TicketType, Ticket } from "./types";
@@ -8,8 +7,6 @@ import "./App.css";
 
 const TICKET_TYPES: { value: TicketType; label: string; icon: string }[] = [
   { value: "bug", label: "Bug", icon: "🐛" },
-  { value: "feature", label: "Feature", icon: "✨" },
-  { value: "task", label: "Task", icon: "📋" },
 ];
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -39,71 +36,6 @@ function MicIcon({ active }: { active: boolean }) {
   );
 }
 
-function PrinterIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 6 2 18 2 18 9" />
-      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-      <rect x="6" y="14" width="12" height="8" />
-    </svg>
-  );
-}
-
-function PrintStepStream({ steps, running }: {
-  steps: PrintStep[];
-  running: boolean;
-}) {
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState<PrintStep[]>([]);
-  const queueRef = useRef<PrintStep[]>([]);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (steps.length === 0) {
-      setVisible([]);
-      queueRef.current = [];
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-      return;
-    }
-    const newSteps = steps.slice(visible.length + queueRef.current.length);
-    if (newSteps.length === 0) return;
-    queueRef.current = [...queueRef.current, ...newSteps];
-    if (!timerRef.current) drip();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [steps]);
-
-  function drip() {
-    if (queueRef.current.length === 0) { timerRef.current = null; return; }
-    const next = queueRef.current.shift()!;
-    setVisible((v) => [...v, next]);
-    timerRef.current = setTimeout(drip, 200);
-  }
-
-  useEffect(() => {
-    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [visible]);
-
-  if (visible.length === 0) return null;
-
-  return (
-    <div className="print-stream" ref={bodyRef}>
-      {visible.map((s) => (
-        <div key={s.step} className="print-stream-line">
-          <span className="print-stream-step">[{s.step}/{s.total}]</span>
-          <span className="print-stream-msg">{s.message}</span>
-        </div>
-      ))}
-      {running && visible.length < (steps[0]?.total ?? 5) && (
-        <div className="print-stream-line print-stream-waiting">
-          <span className="print-stream-step">···</span>
-          <span className="timeline-cursor">▋</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 const EVENT_META: Record<string, { color: string; label: string }> = {
   RUN_STARTED:        { color: "#6366f1", label: "Run Started" },
   TEXT_MESSAGE_START: { color: "#22c55e", label: "Message Start" },
@@ -111,7 +43,6 @@ const EVENT_META: Record<string, { color: string; label: string }> = {
   TOOL_CALL_START:    { color: "#f97316", label: "Tool Call" },
   TOOL_CALL_END:      { color: "#f97316", label: "Tool Done" },
   STATE_SNAPSHOT:     { color: "#8b5cf6", label: "State Snapshot" },
-  STEP_PROGRESS:      { color: "#06b6d4", label: "Step Progress" },
   RUN_FINISHED:       { color: "#6366f1", label: "Run Finished" },
   RUN_ERROR:          { color: "#ef4444", label: "Error" },
 };
@@ -122,7 +53,6 @@ function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
   const queueRef = useRef<AgentEvent[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // When events array grows, push new ones into the drip queue
   useEffect(() => {
     const newEvents = events.slice(visible.length + queueRef.current.length);
     if (newEvents.length === 0) return;
@@ -131,7 +61,6 @@ function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events]);
 
-  // Reset when events is cleared (new run)
   useEffect(() => {
     if (events.length === 0) {
       setVisible([]);
@@ -148,9 +77,7 @@ function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
   }
 
   useEffect(() => {
-    if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [visible]);
 
   if (visible.length === 0 && events.length === 0) return null;
@@ -249,96 +176,45 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
   );
 }
 
-type Mode = "ticket" | "print";
-
 export default function App() {
-  const [mode, setMode] = useState<Mode>("ticket");
-  const [ticketType, setTicketType] = useState<TicketType>("bug");
+  const [ticketType] = useState<TicketType>("bug");
   const [request, setRequest] = useState("");
-
-  const { state: ticketState, submit: submitTicket } = useAgentStream();
-  const { state: printState, submit: submitPrint } = usePrintAgentStream();
-
-  const activeRunning = mode === "ticket" ? ticketState.running : printState.running;
-
+  const { state, submit } = useAgentStream();
   const handleTranscript = useCallback((text: string) => setRequest(text), []);
   const speech = useSpeechRecognition(handleTranscript);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!request.trim() || activeRunning) return;
+    if (!request.trim() || state.running) return;
     if (speech.listening) speech.toggle();
-    if (mode === "ticket") {
-      submitTicket(ticketType, request.trim());
-    } else {
-      submitPrint(request.trim());
-    }
+    submit(ticketType, request.trim());
     setRequest("");
   }
 
   return (
     <div className="app">
       <header>
-        <h1>AG-UI Agent</h1>
-        <p>Describe your issue and the agent will handle it.</p>
+        <h1>AG-UI Ticket Agent</h1>
+        <p>Describe your bug and the agent will create a structured ticket.</p>
       </header>
 
       <main>
         <section className="form-section">
-          {/* Mode switcher */}
-          <div className="mode-selector">
-            <button
-              type="button"
-              className={`mode-btn ${mode === "ticket" ? "active" : ""}`}
-              onClick={() => setMode("ticket")}
-            >
-              Ticket Agent
-            </button>
-            <button
-              type="button"
-              className={`mode-btn ${mode === "print" ? "active" : ""}`}
-              onClick={() => setMode("print")}
-            >
-              <PrinterIcon /> Print Agent
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit}>
-            {mode === "ticket" && (
-              <div className="type-selector">
-                {TICKET_TYPES.map(({ value, label, icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`type-btn ${ticketType === value ? "active" : ""}`}
-                    onClick={() => setTicketType(value)}
-                  >
-                    {icon} {label}
-                  </button>
-                ))}
-              </div>
-            )}
-
             <div className="textarea-wrapper">
               <textarea
                 value={request}
                 onChange={(e) => setRequest(e.target.value)}
-                placeholder={
-                  speech.listening
-                    ? "Listening… speak your issue"
-                    : mode === "print"
-                    ? "Describe your print issue…"
-                    : `Describe the ${ticketType}…`
-                }
+                placeholder={speech.listening ? "Listening… speak your issue" : "Describe the bug…"}
                 rows={4}
-                disabled={activeRunning}
+                disabled={state.running}
               />
               {speech.supported && (
                 <button
                   type="button"
                   className={`mic-btn ${speech.listening ? "mic-btn--active" : ""}`}
                   onClick={speech.toggle}
-                  disabled={activeRunning}
+                  disabled={state.running}
                   title={speech.listening ? "Stop recording" : "Speak your issue"}
                 >
                   <MicIcon active={speech.listening} />
@@ -350,67 +226,42 @@ export default function App() {
             <button
               type="submit"
               className="submit-btn"
-              disabled={activeRunning || !request.trim()}
+              disabled={state.running || !request.trim()}
             >
-              {activeRunning
-                ? mode === "print" ? "Print agent running…" : "Agent running…"
-                : mode === "print" ? "Diagnose Print Issue" : "Create Ticket"}
+              {state.running ? "Agent running…" : "Create Ticket"}
             </button>
           </form>
 
-          {mode === "ticket" && ticketState.status && (
+          {state.status && (
             <div className="agent-status">
               <span className="status-spinner" />
-              {ticketState.status}
+              {state.status}
             </div>
           )}
 
-          {mode === "ticket" && ticketState.events.length > 0 && (
-            <AgentStateTimeline events={ticketState.events} />
-          )}
-          {mode === "print" && printState.events.length > 0 && (
-            <AgentStateTimeline events={printState.events} />
+          {state.events.length > 0 && (
+            <AgentStateTimeline events={state.events} />
           )}
         </section>
 
-        {/* Print agent output */}
-        {mode === "print" && (printState.running || printState.steps.length > 0 || printState.error) && (
+        {(state.text || state.toolProgress || state.error) && (
           <section className="stream-section">
-            {printState.error && <div className="error">{printState.error}</div>}
-            {(printState.running || printState.steps.length > 0) && (
-              <PrintStepStream
-                steps={printState.steps}
-                running={printState.running}
-              />
-            )}
-            {printState.text && (
+            {state.error && <div className="error">{state.error}</div>}
+            {state.text && (
               <div className="agent-text">
-                {printState.text}
-                {printState.running && <span className="cursor" />}
+                {state.text}
+                {state.running && !state.toolProgress && <span className="cursor" />}
               </div>
             )}
+            {state.toolProgress && <TicketInProgress progress={state.toolProgress} />}
           </section>
         )}
 
-        {/* Ticket agent output */}
-        {mode === "ticket" && (ticketState.text || ticketState.toolProgress || ticketState.error) && (
-          <section className="stream-section">
-            {ticketState.error && <div className="error">{ticketState.error}</div>}
-            {ticketState.text && (
-              <div className="agent-text">
-                {ticketState.text}
-                {ticketState.running && !ticketState.toolProgress && <span className="cursor" />}
-              </div>
-            )}
-            {ticketState.toolProgress && <TicketInProgress progress={ticketState.toolProgress} />}
-          </section>
-        )}
-
-        {mode === "ticket" && ticketState.tickets.length > 0 && (
+        {state.tickets.length > 0 && (
           <section className="tickets-section">
             <h2>Created Tickets</h2>
             <div className="tickets-list">
-              {ticketState.tickets.map((t) => <TicketCard key={t.id} ticket={t} />)}
+              {state.tickets.map((t) => <TicketCard key={t.id} ticket={t} />)}
             </div>
           </section>
         )}
