@@ -454,6 +454,16 @@ textarea:disabled {
   text-transform: uppercase;
   color: var(--text);
   border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timeline-count {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.5;
+  letter-spacing: 0;
 }
 
 .timeline-body {

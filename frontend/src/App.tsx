@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAgentStream } from "./useAgentStream";
 import { usePrintAgentStream } from "./usePrintAgentStream";
 import { useSpeechRecognition } from "./useSpeechRecognition";
@@ -109,12 +109,23 @@ const EVENT_META: Record<string, { color: string; label: string }> = {
 };
 
 function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }
+  }, [events]);
+
   if (events.length === 0) return null;
   const startTs = events[0].ts;
   return (
     <div className="state-timeline">
-      <div className="timeline-header">AG-UI Event Stream</div>
-      <div className="timeline-body">
+      <div className="timeline-header">
+        <span>AG-UI Event Stream</span>
+        <span className="timeline-count">{events.length} events</span>
+      </div>
+      <div className="timeline-body" ref={bodyRef}>
         {events.map((ev, i) => {
           const meta = EVENT_META[ev.type] ?? { color: "#94a3b8", label: ev.type };
           const elapsed = ((ev.ts - startTs) / 1000).toFixed(2);
@@ -313,6 +324,13 @@ export default function App() {
               {ticketState.status}
             </div>
           )}
+
+          {mode === "ticket" && ticketState.events.length > 0 && (
+            <AgentStateTimeline events={ticketState.events} />
+          )}
+          {mode === "print" && printState.events.length > 0 && (
+            <AgentStateTimeline events={printState.events} />
+          )}
         </section>
 
         {/* Print agent output */}
@@ -327,19 +345,17 @@ export default function App() {
               />
             )}
             {printState.text && (
-              <div className="agent-text" style={{ marginTop: "1rem" }}>
+              <div className="agent-text">
                 {printState.text}
                 {printState.running && <span className="cursor" />}
               </div>
             )}
-            <AgentStateTimeline events={printState.events} />
           </section>
         )}
 
         {/* Ticket agent output */}
-        {mode === "ticket" && (ticketState.text || ticketState.toolProgress || ticketState.error || ticketState.events.length > 0) && (
+        {mode === "ticket" && (ticketState.text || ticketState.toolProgress || ticketState.error) && (
           <section className="stream-section">
-            <h2>Agent Stream</h2>
             {ticketState.error && <div className="error">{ticketState.error}</div>}
             {ticketState.text && (
               <div className="agent-text">
@@ -348,7 +364,6 @@ export default function App() {
               </div>
             )}
             {ticketState.toolProgress && <TicketInProgress progress={ticketState.toolProgress} />}
-            <AgentStateTimeline events={ticketState.events} />
           </section>
         )}
 
