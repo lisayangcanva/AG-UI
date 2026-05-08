@@ -5,10 +5,6 @@ import type { ToolProgress, AgentEvent } from "./useAgentStream";
 import type { TicketType, Ticket } from "./types";
 import "./App.css";
 
-const TICKET_TYPES: { value: TicketType; label: string; icon: string }[] = [
-  { value: "bug", label: "Bug", icon: "🐛" },
-];
-
 const PRIORITY_COLORS: Record<string, string> = {
   critical: "#ef4444",
   high: "#f97316",
@@ -176,10 +172,33 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
   );
 }
 
+function ElapsedTimer({ running }: { running: boolean }) {
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    if (!running) { setElapsed(0); return; }
+    startRef.current = Date.now();
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  if (!running) return null;
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  return (
+    <span className="elapsed-timer">
+      {m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`}
+    </span>
+  );
+}
+
 export default function App() {
   const [ticketType] = useState<TicketType>("bug");
   const [request, setRequest] = useState("");
-  const { state, submit } = useAgentStream();
+  const { state, submit, abort, dismissToast } = useAgentStream();
   const handleTranscript = useCallback((text: string) => setRequest(text), []);
   const speech = useSpeechRecognition(handleTranscript);
 
@@ -189,6 +208,11 @@ export default function App() {
     if (speech.listening) speech.toggle();
     submit(ticketType, request.trim());
     setRequest("");
+  }
+
+  function handleCancel() {
+    abort();
+    if (speech.listening) speech.toggle();
   }
 
   return (
@@ -223,28 +247,50 @@ export default function App() {
               )}
             </div>
 
-            <button
-              type="submit"
-              className="submit-btn"
-              disabled={state.running || !request.trim()}
-            >
-              {state.running ? "Agent running…" : "Create Ticket"}
-            </button>
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={state.running || !request.trim()}
+              >
+                {state.running ? "Agent running…" : "Create Ticket"}
+              </button>
+              {state.running && (
+                <button type="button" className="cancel-btn" onClick={handleCancel}>
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
 
-          {state.status && (
-            <div className="agent-status">
-              <span className="status-spinner" />
-              {state.status}
+          {state.cancelled && (
+            <div className="notice notice--cancelled">
+              Request cancelled.
             </div>
           )}
 
-          {state.events.length > 0 && (
+          {state.running && state.status && (
+            <div className="agent-status">
+              <span className="status-spinner" />
+              {state.backgrounded ? "Working in background" : state.status}
+              <ElapsedTimer running={state.running} />
+            </div>
+          )}
+
+          {state.events.length > 0 && !state.backgrounded && (
             <AgentStateTimeline events={state.events} />
           )}
         </section>
 
-        {(state.text || state.toolProgress || state.error) && (
+        {state.toastReady && (
+          <div className="toast" role="alert">
+            <span className="toast-icon">✓</span>
+            <span className="toast-msg">Ticket ready — scroll down to view it.</span>
+            <button className="toast-close" onClick={dismissToast} aria-label="Dismiss">×</button>
+          </div>
+        )}
+
+        {(state.text || state.toolProgress || state.error) && !state.backgrounded && (
           <section className="stream-section">
             {state.error && <div className="error">{state.error}</div>}
             {state.text && (

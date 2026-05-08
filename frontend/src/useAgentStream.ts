@@ -23,6 +23,9 @@ interface StreamState {
   status: string;
   events: AgentEvent[];
   error: string | null;
+  backgrounded: boolean;
+  toastReady: boolean;
+  cancelled: boolean;
 }
 
 const INITIAL_STATE: StreamState = {
@@ -33,6 +36,9 @@ const INITIAL_STATE: StreamState = {
   status: "",
   events: [],
   error: null,
+  backgrounded: false,
+  toastReady: false,
+  cancelled: false,
 };
 
 function parsePartialJson(raw: string): Partial<ToolProgress> {
@@ -70,14 +76,35 @@ function parsePartialJson(raw: string): Partial<ToolProgress> {
 export function useAgentStream() {
   const [state, setState] = useState<StreamState>(INITIAL_STATE);
   const rawArgsRef = useRef("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const abort = useCallback(() => {
+    abortRef.current?.abort();
+    setState((s) => ({ ...s, running: false, status: "", cancelled: true }));
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    setState((s) => ({ ...s, toastReady: false }));
+  }, []);
 
   const submit = useCallback(async (ticketType: TicketType, userRequest: string) => {
     setState({ ...INITIAL_STATE, running: true, status: "Starting…" });
     rawArgsRef.current = "";
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const threadId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     let messageCount = 0;
+
+    // After 60s with the run still going, move to background mode
+    const backgroundTimer = setTimeout(() => {
+      setState((s) => {
+        if (!s.running) return s;
+        return { ...s, backgrounded: true, status: "Working in background…" };
+      });
+    }, 60_000);
 
     function log(type: string, detail: string) {
       setState((s) => ({
@@ -86,7 +113,6 @@ export function useAgentStream() {
       }));
     }
 
-    // Update the last event's detail in place (for rolling counters)
     function updateLast(detail: string) {
       setState((s) => {
         if (s.events.length === 0) return s;
@@ -137,6 +163,7 @@ export function useAgentStream() {
           rawArgsRef.current += event.delta;
           argCharCount += event.delta.length;
           updateLast(`${event.tool_call_name ?? "create_ticket"} · ${argCharCount} chars`);
+          // eslint-disable-next-line no-case-declarations
           const parsed = parsePartialJson(rawArgsRef.current);
           setState((s) => {
             if (!s.toolProgress) return s;
@@ -167,11 +194,18 @@ export function useAgentStream() {
           break;
 
         case "RUN_FINISHED":
+          clearTimeout(backgroundTimer);
           log("RUN_FINISHED", "done");
-          setState((s) => ({ ...s, running: false, status: "" }));
+          setState((s) => ({
+            ...s,
+            running: false,
+            status: "",
+            toastReady: s.backgrounded,
+          }));
           break;
 
         case "RUN_ERROR":
+          clearTimeout(backgroundTimer);
           log("RUN_ERROR", event.message);
           setState((s) => ({ ...s, running: false, status: "", error: event.message }));
           break;
@@ -192,6 +226,7 @@ export function useAgentStream() {
             },
           ],
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -214,11 +249,12 @@ export function useAgentStream() {
           if (!dataLine) continue;
           const json = dataLine.slice(5).trim();
           if (!json) continue;
-          const event = JSON.parse(json) as AgUIEvent;
-          handleEvent(event);
+          handleEvent(JSON.parse(json) as AgUIEvent);
         }
       }
     } catch (err) {
+      clearTimeout(backgroundTimer);
+      if (err instanceof Error && err.name === "AbortError") return;
       setState((s) => ({
         ...s,
         running: false,
@@ -228,5 +264,5 @@ export function useAgentStream() {
     }
   }, []);
 
-  return { state, submit };
+  return { state, submit, abort, dismissToast };
 }
