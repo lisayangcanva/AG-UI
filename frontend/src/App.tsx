@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useAgentStream } from "./useAgentStream";
 import { usePrintAgentStream } from "./usePrintAgentStream";
 import { useSpeechRecognition } from "./useSpeechRecognition";
-import type { ToolProgress } from "./useAgentStream";
+import type { ToolProgress, AgentEvent } from "./useAgentStream";
 import type { PrintStep } from "./usePrintAgentStream";
 import type { TicketType, Ticket } from "./types";
 import "./App.css";
@@ -92,6 +92,42 @@ function PrintProgressPanel({ steps, status, running }: {
           </ul>
         </>
       )}
+    </div>
+  );
+}
+
+const EVENT_META: Record<string, { color: string; label: string }> = {
+  RUN_STARTED:        { color: "#6366f1", label: "Run Started" },
+  TEXT_MESSAGE_START: { color: "#22c55e", label: "Message Start" },
+  TEXT_MESSAGE_END:   { color: "#22c55e", label: "Message End" },
+  TOOL_CALL_START:    { color: "#f97316", label: "Tool Call" },
+  TOOL_CALL_END:      { color: "#f97316", label: "Tool Done" },
+  STATE_SNAPSHOT:     { color: "#8b5cf6", label: "State Snapshot" },
+  STEP_PROGRESS:      { color: "#06b6d4", label: "Step Progress" },
+  RUN_FINISHED:       { color: "#6366f1", label: "Run Finished" },
+  RUN_ERROR:          { color: "#ef4444", label: "Error" },
+};
+
+function AgentStateTimeline({ events }: { events: AgentEvent[] }) {
+  if (events.length === 0) return null;
+  const startTs = events[0].ts;
+  return (
+    <div className="state-timeline">
+      <div className="timeline-header">AG-UI Event Stream</div>
+      <div className="timeline-body">
+        {events.map((ev, i) => {
+          const meta = EVENT_META[ev.type] ?? { color: "#94a3b8", label: ev.type };
+          const elapsed = ((ev.ts - startTs) / 1000).toFixed(2);
+          return (
+            <div key={i} className="timeline-row">
+              <span className="timeline-ts">+{elapsed}s</span>
+              <span className="timeline-dot" style={{ background: meta.color }} />
+              <span className="timeline-type" style={{ color: meta.color }}>{meta.label}</span>
+              {ev.detail && <span className="timeline-detail">{ev.detail}</span>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -296,11 +332,12 @@ export default function App() {
                 {printState.running && <span className="cursor" />}
               </div>
             )}
+            <AgentStateTimeline events={printState.events} />
           </section>
         )}
 
         {/* Ticket agent output */}
-        {mode === "ticket" && (ticketState.text || ticketState.toolProgress || ticketState.error) && (
+        {mode === "ticket" && (ticketState.text || ticketState.toolProgress || ticketState.error || ticketState.events.length > 0) && (
           <section className="stream-section">
             <h2>Agent Stream</h2>
             {ticketState.error && <div className="error">{ticketState.error}</div>}
@@ -311,6 +348,7 @@ export default function App() {
               </div>
             )}
             {ticketState.toolProgress && <TicketInProgress progress={ticketState.toolProgress} />}
+            <AgentStateTimeline events={ticketState.events} />
           </section>
         )}
 

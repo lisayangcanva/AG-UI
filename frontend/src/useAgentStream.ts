@@ -9,12 +9,19 @@ export interface ToolProgress {
   labels: string[];
 }
 
+export interface AgentEvent {
+  type: string;
+  ts: number;
+  detail: string;
+}
+
 interface StreamState {
   running: boolean;
   text: string;
   toolProgress: ToolProgress | null;
   tickets: Ticket[];
   status: string;
+  events: AgentEvent[];
   error: string | null;
 }
 
@@ -24,6 +31,7 @@ const INITIAL_STATE: StreamState = {
   toolProgress: null,
   tickets: [],
   status: "",
+  events: [],
   error: null,
 };
 
@@ -71,14 +79,23 @@ export function useAgentStream() {
     const runId = crypto.randomUUID();
     let messageCount = 0;
 
+    function log(type: string, detail: string) {
+      setState((s) => ({
+        ...s,
+        events: [...s.events, { type, ts: Date.now(), detail }],
+      }));
+    }
+
     function handleEvent(event: AgUIEvent) {
       switch (event.type) {
         case "RUN_STARTED":
+          log("RUN_STARTED", `thread=${input.threadId.slice(0, 8)}…`);
           setState((s) => ({ ...s, status: "Analysing your request…" }));
           break;
 
         case "TEXT_MESSAGE_START":
           messageCount++;
+          log("TEXT_MESSAGE_START", messageCount === 1 ? "reasoning" : "summary");
           setState((s) => ({
             ...s,
             status: messageCount === 1 ? "Thinking…" : "Writing summary…",
@@ -91,6 +108,7 @@ export function useAgentStream() {
 
         case "TOOL_CALL_START":
           rawArgsRef.current = "";
+          log("TOOL_CALL_START", event.tool_call_name);
           setState((s) => ({
             ...s,
             status: "Building ticket…",
@@ -117,6 +135,7 @@ export function useAgentStream() {
           break;
 
         case "TOOL_CALL_END":
+          log("TOOL_CALL_END", "args complete");
           setState((s) => ({
             ...s,
             status: "Ticket created — generating summary…",
@@ -124,14 +143,17 @@ export function useAgentStream() {
           break;
 
         case "STATE_SNAPSHOT":
+          log("STATE_SNAPSHOT", `${event.snapshot.tickets.length} ticket(s)`);
           setState((s) => ({ ...s, tickets: event.snapshot.tickets, toolProgress: null }));
           break;
 
         case "RUN_FINISHED":
+          log("RUN_FINISHED", "done");
           setState((s) => ({ ...s, running: false, status: "" }));
           break;
 
         case "RUN_ERROR":
+          log("RUN_ERROR", event.message);
           setState((s) => ({ ...s, running: false, status: "", error: event.message }));
           break;
       }

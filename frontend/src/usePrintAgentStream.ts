@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type { AgUIEvent, StepProgressEvent } from "./types";
+import type { AgentEvent } from "./useAgentStream";
 
 export interface PrintStep {
   step: number;
@@ -14,6 +15,7 @@ interface PrintState {
   currentStep: number;
   text: string;
   status: string;
+  events: AgentEvent[];
   error: string | null;
 }
 
@@ -23,6 +25,7 @@ const INITIAL_STATE: PrintState = {
   currentStep: 0,
   text: "",
   status: "",
+  events: [],
   error: null,
 };
 
@@ -35,21 +38,28 @@ export function usePrintAgentStream() {
     const threadId = crypto.randomUUID();
     const runId = crypto.randomUUID();
 
+    function log(type: string, detail: string) {
+      setState((s) => ({
+        ...s,
+        events: [...s.events, { type, ts: Date.now(), detail }],
+      }));
+    }
+
     function handleEvent(event: AgUIEvent) {
       switch (event.type) {
         case "RUN_STARTED":
+          log("RUN_STARTED", "print agent started");
           setState((s) => ({ ...s, status: "Print agent is diagnosing your issue…" }));
           break;
 
         case "STEP_PROGRESS": {
           const e = event as StepProgressEvent;
+          log("STEP_PROGRESS", `step ${e.step}/${e.total}`);
           setState((s) => {
             const steps = [...s.steps];
-            // mark previous steps as done
             const updated = steps.map((st) =>
               st.step < e.step ? { ...st, done: true } : st
             );
-            // add the new step if not already present
             if (!updated.find((st) => st.step === e.step)) {
               updated.push({ step: e.step, total: e.total, message: e.message, done: false });
             }
@@ -59,9 +69,9 @@ export function usePrintAgentStream() {
         }
 
         case "TEXT_MESSAGE_START":
+          log("TEXT_MESSAGE_START", "resolution");
           setState((s) => ({
             ...s,
-            // mark all steps done when analysis starts
             steps: s.steps.map((st) => ({ ...st, done: true })),
             status: "Analysis complete — generating resolution…",
           }));
@@ -72,10 +82,12 @@ export function usePrintAgentStream() {
           break;
 
         case "RUN_FINISHED":
+          log("RUN_FINISHED", "done");
           setState((s) => ({ ...s, running: false, status: "" }));
           break;
 
         case "RUN_ERROR":
+          log("RUN_ERROR", event.message);
           setState((s) => ({ ...s, running: false, status: "", error: event.message }));
           break;
       }
