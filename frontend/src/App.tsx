@@ -272,7 +272,7 @@ export default function App() {
           {state.running && state.status && (
             <div className="agent-status">
               <span className="status-spinner" />
-              {state.backgrounded ? "Working in background" : state.status}
+              {state.backgrounded ? "Working in background — feel free to step away" : state.status}
               <ElapsedTimer running={state.running} />
             </div>
           )}

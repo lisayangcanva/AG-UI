@@ -98,12 +98,15 @@ export function useAgentStream() {
     const runId = crypto.randomUUID();
     let messageCount = 0;
 
-    // After 60s with the run still going, move to background mode
-    const backgroundTimer = setTimeout(() => {
+    // After 30s switch to background and request notification permission
+    const backgroundTimer = setTimeout(async () => {
       setState((s) => {
         if (!s.running) return s;
         return { ...s, backgrounded: true, status: "Working in background…" };
       });
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
     }, 30_000);
 
     function log(type: string, detail: string) {
@@ -196,12 +199,15 @@ export function useAgentStream() {
         case "RUN_FINISHED":
           clearTimeout(backgroundTimer);
           log("RUN_FINISHED", "done");
-          setState((s) => ({
-            ...s,
-            running: false,
-            status: "",
-            toastReady: s.backgrounded,
-          }));
+          setState((s) => {
+            if (s.backgrounded && "Notification" in window && Notification.permission === "granted") {
+              new Notification("Ticket ready", {
+                body: "Your ticket has been created. Click to view it.",
+                icon: "/favicon.svg",
+              });
+            }
+            return { ...s, running: false, status: "", toastReady: s.backgrounded };
+          });
           break;
 
         case "RUN_ERROR":
