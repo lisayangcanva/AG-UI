@@ -1,15 +1,20 @@
-# AG-UI Ticket Agent
+# AG-UI Agent
 
-A spike project demonstrating the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) — a streaming event protocol that connects an AI agent backend to a React frontend in real time.
+A spike project demonstrating the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) — a streaming event protocol that connects AI agent backends to a React frontend in real time.
 
-The agent accepts a natural-language description, calls GPT-4.1 to produce a structured ticket via tool use, and streams every step of that process back to the UI as it happens.
+The app hosts two agents:
+- **Ticket Agent** — accepts a natural-language description, calls GPT-4.1 to produce a structured ticket via tool use, and streams every step back to the UI as it happens.
+- **Print Agent** — diagnoses print issues with a live 5-step progress panel, then streams a practical resolution.
+
+Both agents support **voice input** via the browser's Web Speech API.
 
 ## Architecture
 
 ```
 frontend (React + TypeScript + Vite)
     │
-    │  POST /agent   (SSE stream)
+    │  POST /agent          (Ticket Agent — SSE stream)
+    │  POST /print-agent    (Print Agent  — SSE stream)
     ▼
 backend (Spring Boot + Java 21)
     │
@@ -18,19 +23,30 @@ backend (Spring Boot + Java 21)
 GPT-4.1
 ```
 
-### AG-UI event flow
+### AG-UI event flow — Ticket Agent
 
 ```
 RUN_STARTED
 TEXT_MESSAGE_START
-TEXT_MESSAGE_CONTENT  ← streamed token by token
+TEXT_MESSAGE_CONTENT  ← agent reasoning, streamed token by token
 TOOL_CALL_START
-TOOL_CALL_ARGS        ← streamed JSON fragment by fragment
+TOOL_CALL_ARGS        ← ticket fields streamed JSON fragment by fragment
 TOOL_CALL_END
 TEXT_MESSAGE_END
 STATE_SNAPSHOT        ← full ticket list
 TEXT_MESSAGE_START
 TEXT_MESSAGE_CONTENT  ← summary, streamed
+TEXT_MESSAGE_END
+RUN_FINISHED
+```
+
+### AG-UI event flow — Print Agent
+
+```
+RUN_STARTED
+STEP_PROGRESS × 5     ← one per second, each describing a diagnostic step
+TEXT_MESSAGE_START
+TEXT_MESSAGE_CONTENT  ← resolution, streamed token by token
 TEXT_MESSAGE_END
 RUN_FINISHED
 ```
@@ -42,7 +58,7 @@ RUN_FINISHED
 | Java | 21+ |
 | Maven | 3.9+ |
 | Node.js | 18+ |
-| OpenAI API key | — |
+| OpenAI API key + Org ID | — |
 
 ## Quick start
 
@@ -93,17 +109,20 @@ AG-UI/
 │   └── src/main/java/com/agui/
 │       ├── Application.java
 │       ├── agent/
-│       │   └── TicketAgent.java            # streaming agent + tool execution
+│       │   ├── TicketAgent.java            # ticket creation via tool use
+│       │   └── PrintAgent.java             # print diagnostics with staged progress
 │       ├── controller/
-│       │   └── AgentController.java        # POST /agent, GET /tickets
+│       │   └── AgentController.java        # POST /agent, POST /print-agent, GET /tickets
 │       └── model/
 │           ├── Message.java
 │           ├── RunAgentInput.java
 │           └── Ticket.java
 └── frontend/
     └── src/
-        ├── App.tsx                         # ticket type selector, stream panel, ticket cards
-        ├── useAgentStream.ts               # SSE reader, AG-UI event dispatcher
+        ├── App.tsx                         # mode switcher, forms, stream panels
+        ├── useAgentStream.ts               # ticket agent SSE hook
+        ├── usePrintAgentStream.ts          # print agent SSE hook with step tracking
+        ├── useSpeechRecognition.ts         # Web Speech API voice input hook
         └── types.ts                        # AG-UI event type union
 ```
 
@@ -111,7 +130,7 @@ AG-UI/
 
 ### `POST /agent`
 
-Runs the agent. Returns an SSE stream of AG-UI events.
+Runs the Ticket Agent. Returns an SSE stream of AG-UI events.
 
 **Request body**
 
@@ -136,6 +155,24 @@ data: {"type":"TOOL_CALL_START","tool_call_id":"...","tool_call_name":"create_ti
 data: {"type":"TOOL_CALL_ARGS","tool_call_id":"...","delta":"{\"type\":\"bug\""}
 ...
 data: {"type":"STATE_SNAPSHOT","snapshot":{"tickets":[...]}}
+data: {"type":"RUN_FINISHED","thread_id":"...","run_id":"..."}
+```
+
+### `POST /print-agent`
+
+Runs the Print Agent. Returns an SSE stream with live diagnostic steps followed by a resolution.
+
+**Request body** — same shape as `/agent`.
+
+**Response** — `text/event-stream`:
+
+```
+data: {"type":"RUN_STARTED","thread_id":"...","run_id":"..."}
+data: {"type":"STEP_PROGRESS","step":1,"total":5,"message":"Connecting to print spooler..."}
+data: {"type":"STEP_PROGRESS","step":2,"total":5,"message":"Checking printer status..."}
+...
+data: {"type":"TEXT_MESSAGE_CONTENT","message_id":"...","delta":"The most likely cause..."}
+...
 data: {"type":"RUN_FINISHED","thread_id":"...","run_id":"..."}
 ```
 
@@ -164,9 +201,17 @@ Returns all tickets created in the current server session.
 | `feature` | New functionality; agent focuses on user value and acceptance criteria |
 | `task` | Work item; agent focuses on definition of done and dependencies |
 
+## Voice input
+
+Click the microphone icon in the textarea to speak your issue. The transcript populates the text field in real time. Click the mic again (or submit) to stop recording.
+
+- Supported: Chrome, Edge
+- Requires permission grant: Safari (enable in settings)
+- Not supported: Firefox
+
 ## Notes
 
 - The in-memory ticket store (`ConcurrentHashMap` in `TicketAgent`) resets on server restart — intentional for a spike.
-- The backend makes two GPT-4.1 calls per request: one streaming call to generate text and invoke the tool, then a second streaming call to summarise the result.
+- The Print Agent deliberately sleeps 1 second between each of its 5 diagnostic steps to simulate real processing time.
 - CORS is configured for `http://localhost:5173` only.
 - Frontend type imports use `import type` syntax, required by `verbatimModuleSyntax: true` in `tsconfig.app.json`.
