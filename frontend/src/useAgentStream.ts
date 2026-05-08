@@ -89,7 +89,7 @@ export function useAgentStream() {
     function handleEvent(event: AgUIEvent) {
       switch (event.type) {
         case "RUN_STARTED":
-          log("RUN_STARTED", `thread=${input.threadId.slice(0, 8)}…`);
+          log("RUN_STARTED", `thread=${threadId.slice(0, 8)}…`);
           setState((s) => ({ ...s, status: "Analysing your request…" }));
           break;
 
