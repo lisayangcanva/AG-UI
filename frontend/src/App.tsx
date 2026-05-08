@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAgentStream } from "./useAgentStream";
+import { useSpeechRecognition } from "./useSpeechRecognition";
 import type { ToolProgress } from "./useAgentStream";
 import type { TicketType, Ticket } from "./types";
 import "./App.css";
@@ -23,6 +24,27 @@ const PRIORITY_LABELS: Record<string, string> = {
   medium: "Medium",
   low: "Low",
 };
+
+function MicIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill={active ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
 
 function TicketInProgress({ progress }: { progress: ToolProgress }) {
   return (
@@ -51,13 +73,19 @@ function TicketInProgress({ progress }: { progress: ToolProgress }) {
       {progress.title && (
         <div className="tip-row">
           <span className="tip-label">Title</span>
-          <span className="tip-value">{progress.title}<span className="cursor" /></span>
+          <span className="tip-value">
+            {progress.title}
+            <span className="cursor" />
+          </span>
         </div>
       )}
       {progress.description && (
         <div className="tip-row tip-row--block">
           <span className="tip-label">Description</span>
-          <span className="tip-value tip-description">{progress.description}<span className="cursor" /></span>
+          <span className="tip-value tip-description">
+            {progress.description}
+            <span className="cursor" />
+          </span>
         </div>
       )}
       {progress.labels.length > 0 && (
@@ -65,7 +93,9 @@ function TicketInProgress({ progress }: { progress: ToolProgress }) {
           <span className="tip-label">Labels</span>
           <span className="tip-value">
             {progress.labels.map((l) => (
-              <span key={l} className="label">{l}</span>
+              <span key={l} className="label">
+                {l}
+              </span>
             ))}
           </span>
         </div>
@@ -107,9 +137,16 @@ export default function App() {
   const [request, setRequest] = useState("");
   const { state, submit } = useAgentStream();
 
+  const handleTranscript = useCallback((text: string) => {
+    setRequest(text);
+  }, []);
+
+  const speech = useSpeechRecognition(handleTranscript);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!request.trim() || state.running) return;
+    if (speech.listening) speech.toggle();
     submit(ticketType, request.trim());
     setRequest("");
   }
@@ -137,13 +174,31 @@ export default function App() {
               ))}
             </div>
 
-            <textarea
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
-              placeholder={`Describe the ${ticketType}...`}
-              rows={4}
-              disabled={state.running}
-            />
+            <div className="textarea-wrapper">
+              <textarea
+                value={request}
+                onChange={(e) => setRequest(e.target.value)}
+                placeholder={
+                  speech.listening
+                    ? "Listening… speak your issue"
+                    : `Describe the ${ticketType}…`
+                }
+                rows={4}
+                disabled={state.running}
+              />
+              {speech.supported && (
+                <button
+                  type="button"
+                  className={`mic-btn ${speech.listening ? "mic-btn--active" : ""}`}
+                  onClick={speech.toggle}
+                  disabled={state.running}
+                  title={speech.listening ? "Stop recording" : "Speak your issue"}
+                >
+                  <MicIcon active={speech.listening} />
+                  {speech.listening && <span className="mic-pulse" />}
+                </button>
+              )}
+            </div>
 
             <button
               type="submit"
@@ -175,9 +230,7 @@ export default function App() {
               </div>
             )}
 
-            {state.toolProgress && (
-              <TicketInProgress progress={state.toolProgress} />
-            )}
+            {state.toolProgress && <TicketInProgress progress={state.toolProgress} />}
           </section>
         )}
 
