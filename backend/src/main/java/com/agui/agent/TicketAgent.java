@@ -228,9 +228,9 @@ public class TicketAgent {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("type", type);
             payload.putAll(extra);
-            return "data: " + mapper.writeValueAsString(payload) + "\n\n";
+            return mapper.writeValueAsString(payload);
         } catch (Exception e) {
-            return "data: {\"type\":\"RUN_ERROR\",\"message\":\"serialization error\"}\n\n";
+            return "{\"type\":\"RUN_ERROR\",\"message\":\"serialization error\"}";
         }
     }
 
