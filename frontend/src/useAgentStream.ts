@@ -107,7 +107,7 @@ export function useAgentStream() {
       if ("Notification" in window && Notification.permission === "default") {
         await Notification.requestPermission();
       }
-    }, 30_000);
+    }, 10_000);
 
     function log(type: string, detail: string) {
       setState((s) => ({
