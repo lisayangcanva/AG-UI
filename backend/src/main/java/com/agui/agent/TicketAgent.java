@@ -70,7 +70,7 @@ public class TicketAgent {
 
         // Print issues deliberately take >60s so the frontend switches to background mode
         if (isPrintIssue(input)) {
-            Thread.sleep(40_000);
+            Thread.sleep(12_000);
         }
 
         // Build message list, prepending the system message
