@@ -3,7 +3,6 @@ import { useAgentStream } from "./useAgentStream";
 import { usePrintAgentStream } from "./usePrintAgentStream";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import type { ToolProgress, AgentEvent } from "./useAgentStream";
-import type { PrintStep } from "./usePrintAgentStream";
 import type { TicketType, Ticket } from "./types";
 import "./App.css";
 
@@ -51,46 +50,55 @@ function PrinterIcon() {
   );
 }
 
-function PrintProgressPanel({ steps, status, running }: {
+function PrintStepStream({ steps, running }: {
   steps: PrintStep[];
-  status: string;
   running: boolean;
 }) {
-  const progressPct = steps.length === 0
-    ? 0
-    : Math.round((steps.filter((s) => s.done).length / (steps[0]?.total ?? 5)) * 100);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState<PrintStep[]>([]);
+  const queueRef = useRef<PrintStep[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (steps.length === 0) {
+      setVisible([]);
+      queueRef.current = [];
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      return;
+    }
+    const newSteps = steps.slice(visible.length + queueRef.current.length);
+    if (newSteps.length === 0) return;
+    queueRef.current = [...queueRef.current, ...newSteps];
+    if (!timerRef.current) drip();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps]);
+
+  function drip() {
+    if (queueRef.current.length === 0) { timerRef.current = null; return; }
+    const next = queueRef.current.shift()!;
+    setVisible((v) => [...v, next]);
+    timerRef.current = setTimeout(drip, 200);
+  }
+
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [visible]);
+
+  if (visible.length === 0) return null;
 
   return (
-    <div className="print-panel">
-      <div className="print-panel-header">
-        <PrinterIcon />
-        <span>Print Agent is diagnosing your issue</span>
-        {running && <span className="status-spinner" style={{ marginLeft: "auto" }} />}
-      </div>
-
-      {steps.length > 0 && (
-        <>
-          <div className="print-progress-bar">
-            <div className="print-progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-
-          <ul className="print-steps">
-            {steps.map((s) => (
-              <li key={s.step} className={`print-step ${s.done ? "print-step--done" : "print-step--active"}`}>
-                <span className="print-step-icon">
-                  {s.done ? "✓" : <span className="status-spinner print-step-spinner" />}
-                </span>
-                {s.message}
-              </li>
-            ))}
-            {running && steps.length > 0 && !steps[steps.length - 1].done && status !== steps[steps.length - 1].message && (
-              <li className="print-step print-step--waiting">
-                <span className="print-step-icon">·</span>
-                {status}
-              </li>
-            )}
-          </ul>
-        </>
+    <div className="print-stream" ref={bodyRef}>
+      {visible.map((s) => (
+        <div key={s.step} className="print-stream-line">
+          <span className="print-stream-step">[{s.step}/{s.total}]</span>
+          <span className="print-stream-msg">{s.message}</span>
+        </div>
+      ))}
+      {running && visible.length < (steps[0]?.total ?? 5) && (
+        <div className="print-stream-line print-stream-waiting">
+          <span className="print-stream-step">···</span>
+          <span className="timeline-cursor">▋</span>
+        </div>
       )}
     </div>
   );
@@ -370,9 +378,8 @@ export default function App() {
           <section className="stream-section">
             {printState.error && <div className="error">{printState.error}</div>}
             {(printState.running || printState.steps.length > 0) && (
-              <PrintProgressPanel
+              <PrintStepStream
                 steps={printState.steps}
-                status={printState.status}
                 running={printState.running}
               />
             )}
