@@ -3,6 +3,7 @@ package com.agui.controller;
 import com.agui.agent.TicketAgent;
 import com.agui.model.RunAgentInput;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
@@ -19,8 +20,9 @@ public class AgentController {
     }
 
     @PostMapping(value = "/agent", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> agentEndpoint(@RequestBody RunAgentInput body) {
-        return ticketAgent.run(body);
+    public Flux<ServerSentEvent<String>> agentEndpoint(@RequestBody RunAgentInput body) {
+        return ticketAgent.run(body)
+                .map(json -> ServerSentEvent.<String>builder().data(json).build());
     }
 
     @GetMapping("/tickets")

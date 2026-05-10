@@ -127,6 +127,7 @@ export function useAgentStream() {
 
     let tokenCount = 0;
     let argCharCount = 0;
+    let toolCallName = "";
 
     function handleEvent(event: AgUIEvent) {
       switch (event.type) {
@@ -154,7 +155,9 @@ export function useAgentStream() {
         case "TOOL_CALL_START":
           rawArgsRef.current = "";
           argCharCount = 0;
-          log("TOOL_CALL_START", `${event.tool_call_name} · 0 chars`);
+          toolCallName = event.tool_call_name;
+          log("TOOL_CALL_START", `${event.tool_call_name}`);
+          log("TOOL_CALL_ARGS", `${event.tool_call_name} · 0 chars`);
           setState((s) => ({
             ...s,
             status: "Building ticket…",
@@ -165,7 +168,7 @@ export function useAgentStream() {
         case "TOOL_CALL_ARGS":
           rawArgsRef.current += event.delta;
           argCharCount += event.delta.length;
-          updateLast(`${event.tool_call_name ?? "create_ticket"} · ${argCharCount} chars`);
+          updateLast(`${toolCallName || "create_ticket"} · ${argCharCount} chars`);
           // eslint-disable-next-line no-case-declarations
           const parsed = parsePartialJson(rawArgsRef.current);
           setState((s) => {
@@ -183,13 +186,16 @@ export function useAgentStream() {
           });
           break;
 
-        case "TOOL_CALL_END":
-          log("TOOL_CALL_END", "args complete");
+        case "TOOL_CALL_END": {
+          const durationMs = (event as AgUIEvent & { duration_ms?: number }).duration_ms;
+          const durationLabel = durationMs != null ? ` · ${(durationMs / 1000).toFixed(2)}s` : "";
+          log("TOOL_CALL_END", `${toolCallName || "create_ticket"}${durationLabel}`);
           setState((s) => ({
             ...s,
             status: "Ticket created — generating summary…",
           }));
           break;
+        }
 
         case "STATE_SNAPSHOT":
           log("STATE_SNAPSHOT", `${event.snapshot.tickets.length} ticket(s)`);

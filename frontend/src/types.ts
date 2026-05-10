@@ -61,6 +61,7 @@ export interface ToolCallArgsEvent extends BaseEvent {
 export interface ToolCallEndEvent extends BaseEvent {
   type: "TOOL_CALL_END";
   tool_call_id: string;
+  duration_ms?: number;
 }
 
 export interface StateSnapshotEvent extends BaseEvent {

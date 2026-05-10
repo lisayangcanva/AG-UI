@@ -37,6 +37,7 @@ const EVENT_META: Record<string, { color: string; label: string }> = {
   TEXT_MESSAGE_START: { color: "#22c55e", label: "Message Start" },
   TEXT_MESSAGE_END:   { color: "#22c55e", label: "Message End" },
   TOOL_CALL_START:    { color: "#f97316", label: "Tool Call" },
+  TOOL_CALL_ARGS:     { color: "#fb923c", label: "Tool Args" },
   TOOL_CALL_END:      { color: "#f97316", label: "Tool Done" },
   STATE_SNAPSHOT:     { color: "#8b5cf6", label: "State Snapshot" },
   RUN_FINISHED:       { color: "#6366f1", label: "Run Finished" },

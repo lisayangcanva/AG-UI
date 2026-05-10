@@ -16,8 +16,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -48,6 +50,9 @@ public class TicketAgent {
     }
 
     public Flux<String> run(RunAgentInput input) {
+        if (isDemoRequest(input)) {
+            return buildDemoFlux(input);
+        }
         return Flux.<String>create(sink -> {
             try {
                 runAgent(input, sink);
@@ -61,6 +66,97 @@ public class TicketAgent {
     private static boolean isPrintIssue(RunAgentInput input) {
         return input.messages().stream()
                 .anyMatch(m -> m.content().toLowerCase().contains("print"));
+    }
+
+    private static boolean isDemoRequest(RunAgentInput input) {
+        return input.messages().stream()
+                .anyMatch(m -> m.content().toLowerCase().contains("demo"));
+    }
+
+    private Flux<String> buildDemoFlux(RunAgentInput input) {
+        String threadId = input.threadId();
+        String runId = input.runId();
+        String msgId = UUID.randomUUID().toString();
+        String toolCallId = UUID.randomUUID().toString();
+        String summaryId = UUID.randomUUID().toString();
+
+        String[] reasoning = {
+            "This is a bug ticket — the login form crashes on submit. ",
+            "The root cause appears to be missing null-check on the password field. ",
+            "I'll assign high priority given it blocks user authentication. "
+        };
+        String[] argFragments = {
+            "{\"type\": \"bug\", ",
+            "\"title\": \"Login form crashes on submit\", ",
+            "\"description\": \"Submitting the login form with an empty password field throws an uncaught TypeError. Affects all browsers. Steps: 1) Open login page, 2) Leave password blank, 3) Click Submit.\", ",
+            "\"priority\": \"high\", ",
+            "\"labels\": [\"auth\", \"frontend\", \"regression\"]}"
+        };
+        String[] summary = {"Done! I've created ", "a high-priority bug ticket ", "for the login form crash. ", "It's ready to triage."};
+
+        // Reasoning: 3 chunks × 220ms
+        Flux<String> reasoningFlux = Flux.fromArray(reasoning)
+                .concatMap(chunk -> Mono.just(sseEvent("TEXT_MESSAGE_CONTENT", Map.of("message_id", msgId, "delta", chunk)))
+                        .delaySubscription(Duration.ofMillis(220)));
+
+        // Tool args: 5 fragments × 600ms = 3 seconds
+        long[] toolStartMs = {0};
+        Flux<String> argsFlux = Flux.fromArray(argFragments)
+                .concatMap(frag -> Mono.just(sseEvent("TOOL_CALL_ARGS", Map.of("tool_call_id", toolCallId, "delta", frag)))
+                        .delaySubscription(Duration.ofMillis(600)));
+
+        // Summary: 4 chunks × 180ms
+        Flux<String> summaryFlux = Flux.fromArray(summary)
+                .concatMap(chunk -> Mono.just(sseEvent("TEXT_MESSAGE_CONTENT", Map.of("message_id", summaryId, "delta", chunk)))
+                        .delaySubscription(Duration.ofMillis(180)));
+
+        return Flux.concat(
+                // RUN_STARTED + TEXT_MESSAGE_START
+                Flux.just(
+                        sseEvent("RUN_STARTED", Map.of("thread_id", threadId, "run_id", runId)),
+                        sseEvent("TEXT_MESSAGE_START", Map.of("message_id", msgId, "role", "assistant"))),
+
+                // reasoning text
+                reasoningFlux,
+
+                // 200ms gap then TOOL_CALL_START
+                Mono.just(sseEvent("TOOL_CALL_START", Map.of(
+                                "tool_call_id", toolCallId,
+                                "tool_call_name", "create_ticket",
+                                "parent_message_id", msgId)))
+                        .delaySubscription(Duration.ofMillis(200))
+                        .doOnSuccess(__ -> toolStartMs[0] = System.currentTimeMillis()),
+
+                // tool args — 3 seconds
+                argsFlux,
+
+                // TEXT_MESSAGE_END + TOOL_CALL_END with duration
+                Flux.defer(() -> {
+                    long durationMs = System.currentTimeMillis() - toolStartMs[0];
+                    Ticket ticket = new Ticket(
+                            "TKT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(),
+                            "bug",
+                            "Login form crashes on submit",
+                            "Submitting the login form with an empty password field throws an uncaught TypeError. Affects all browsers. Steps: 1) Open login page, 2) Leave password blank, 3) Click Submit.",
+                            "high",
+                            List.of("auth", "frontend", "regression"));
+                    tickets.put(ticket.id(), ticket);
+                    return Flux.just(
+                            sseEvent("TEXT_MESSAGE_END", Map.of("message_id", msgId)),
+                            sseEvent("TOOL_CALL_END", Map.of("tool_call_id", toolCallId, "duration_ms", durationMs)),
+                            sseEvent("STATE_SNAPSHOT", Map.of("snapshot", Map.of("tickets", tickets.values()))));
+                }),
+
+                // summary
+                Mono.just(sseEvent("TEXT_MESSAGE_START", Map.of("message_id", summaryId, "role", "assistant")))
+                        .flux(),
+                summaryFlux,
+
+                // wrap up
+                Flux.just(
+                        sseEvent("TEXT_MESSAGE_END", Map.of("message_id", summaryId)),
+                        sseEvent("RUN_FINISHED", Map.of("thread_id", threadId, "run_id", runId)))
+        );
     }
 
     private void runAgent(RunAgentInput input, FluxSink<String> sink) throws Exception {
